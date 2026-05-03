@@ -10,9 +10,10 @@ Codex を Termux で配布するための public リポジトリ。
 
 ## 現在の状態
 
-- bootstrap 段階
-- 実調査と PoC は private repo `Codex-Termux-Private` で進行
-- public 側は配布正本として後から整備する
+- public bootstrap 段階
+- 実調査と runtime 監査は private repo `Codex-Termux-Private` で進行
+- public 側は user-facing な README / manifest / release docs を正本として持つ
+- まだ public npm package は提供していない
 
 ## private repo
 
@@ -21,4 +22,40 @@ Codex を Termux で配布するための public リポジトリ。
 ## 方針
 
 - ClaudeCode-Termux と同様に、分析は private、配布は public に分ける
-- public へは検証済み wrapper / manifest / release 導線だけを持ち込む
+- public へは検証済み manifest / release 導線だけを先に持ち込む
+- wrapper package は後段 PoC に回す
+
+## Supported Runtime
+
+audited metadata に登録済みの runtime だけを support 対象とする。
+
+- runtime package: `@mmmbuto/codex-cli-termux`
+- latest audited runtime: `0.124.0-termux`
+- upstream reference: `@openai/codex@0.128.0`
+- platform: `android`
+- arch: `arm64`
+
+正本は [config/codex-termux-release-manifest.json](/data/data/com.termux/files/home/Codex-Termux/config/codex-termux-release-manifest.json)。
+
+## Install
+
+現時点の audited runtime install 例:
+
+```sh
+npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
+codex --version
+codex login status
+```
+
+## Update
+
+この line には public な self-update command が見えていない。
+更新は audited metadata を確認したうえで、対象 version を明示して再 install する。
+
+例:
+
+```sh
+npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
+```
+
+release guidance は [docs/20260503_codex-termux-release-guidance.md](/data/data/com.termux/files/home/Codex-Termux/docs/20260503_codex-termux-release-guidance.md) を参照。

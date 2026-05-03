@@ -1,0 +1,26 @@
+{
+  "canonical_package_name": null,
+  "upstream_package_name": "@openai/codex",
+  "runtime_package_name": "@mmmbuto/codex-cli-termux",
+  "runtime_version": "0.124.0-termux",
+  "latest_audited_version": "0.124.0-termux",
+  "supported_versions": [
+    "0.124.0-termux"
+  ],
+  "platform": "android",
+  "arch": "arm64",
+  "artifact_provenance": {
+    "source_type": "npm-package",
+    "source_package": "@mmmbuto/codex-cli-termux",
+    "source_version": "0.124.0-termux",
+    "upstream_reference": "@openai/codex@0.128.0",
+    "audit_scope": "private-runtime-audit"
+  },
+  "install_command": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
+  "update_command": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
+  "rollback_version": "0.124.0-termux",
+  "rollback_policy": "Reinstall the last audited runtime version explicitly.",
+  "distribution_strategy": "public-metadata-private-audit",
+  "audited_at": "2026-05-03T00:00:00+09:00",
+  "updated_at": "2026-05-03T00:00:00+09:00"
+}
