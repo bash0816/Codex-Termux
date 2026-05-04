@@ -14,6 +14,7 @@ Codex を Termux で配布するための public リポジトリ。
 - 実調査と runtime 監査は private repo `Codex-Termux-Private` で進行
 - public 側は user-facing な README / manifest / release docs を正本として持つ
 - まだ public npm package は提供していない
+- `canonical_package_name: null` は、public wrapper package 未提供を意味する
 
 ## private repo
 
@@ -50,7 +51,7 @@ codex login status
 ## Update
 
 この line には public な self-update command が見えていない。
-更新は audited metadata を確認したうえで、対象 version を明示して再 install する。
+更新は `manual_reinstall_audited_runtime` strategy として扱い、audited metadata を確認したうえで対象 version を明示して再 install する。
 
 例:
 

@@ -1,5 +1,6 @@
 {
   "canonical_package_name": null,
+  "canonical_package_status": "not_published_yet",
   "upstream_package_name": "@openai/codex",
   "runtime_package_name": "@mmmbuto/codex-cli-termux",
   "runtime_version": "0.124.0-termux",
@@ -14,10 +15,13 @@
     "source_package": "@mmmbuto/codex-cli-termux",
     "source_version": "0.124.0-termux",
     "upstream_reference": "@openai/codex@0.128.0",
-    "audit_scope": "private-runtime-audit"
+    "audit_scope": "private-runtime-audit",
+    "audit_evidence_ref": "Codex-Termux-Private:docs/audits/0.124.0-termux.md"
   },
   "install_command": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
-  "update_command": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
+  "update_strategy": "manual_reinstall_audited_runtime",
+  "update_command": null,
+  "update_guidance": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
   "rollback_version": "0.124.0-termux",
   "rollback_policy": "Reinstall the last audited runtime version explicitly.",
   "distribution_strategy": "public-metadata-private-audit",
