@@ -25,11 +25,11 @@ Codex を Termux で配布するための public リポジトリ。
 - platform: `android`
 - arch: `arm64`
 
-正本は [config/codex-termux-release-manifest.json](/data/data/com.termux/files/home/Codex-Termux/config/codex-termux-release-manifest.json)。
+正本は [`config/codex-termux-release-manifest.json`](config/codex-termux-release-manifest.json)。
 
 ## Public Distribution
 
 - install / update / rollback の end-user guidance も現時点では公開しない
 - planned wrapper package があるが、現時点では公開 install 導線として使えない
 
-release guidance は [docs/20260503_codex-termux-release-guidance.md](/data/data/com.termux/files/home/Codex-Termux/docs/20260503_codex-termux-release-guidance.md) を参照。
+release guidance は [`docs/20260503_codex-termux-release-guidance.md`](docs/20260503_codex-termux-release-guidance.md) を参照。
