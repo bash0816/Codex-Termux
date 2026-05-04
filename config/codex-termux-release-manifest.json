@@ -1,6 +1,8 @@
 {
   "canonical_package_name": null,
-  "canonical_package_status": "not_published_yet",
+  "canonical_package_status": "withheld_until_openai_based_runtime",
+  "public_distribution_status": "withheld",
+  "support_status": "tracked_not_public_supported",
   "upstream_package_name": "@openai/codex",
   "runtime_package_name": "@mmmbuto/codex-cli-termux",
   "runtime_version": "0.124.0-termux",
@@ -18,20 +20,21 @@
     "audit_scope": "private-runtime-audit",
     "audit_evidence_ref": "Codex-Termux-Private:docs/audits/0.124.0-termux.md"
   },
-  "install_command": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
-  "update_strategy": "manual_reinstall_audited_runtime",
+  "install_command": null,
+  "update_strategy": "not_publicly_distributed_while_using_mmmbuto_runtime",
   "update_command": null,
-  "update_guidance": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
+  "update_guidance": null,
   "update_capability": {
     "available": true,
     "self_update_command": "codex update",
     "target_package": "@mmmbuto/codex-cli-termux@latest",
     "observed_runtime_version": "0.128.0-termux",
     "resolved_target_version": "0.128.0-termux",
-    "audit_status": "observed_not_adopted_for_public_guidance"
+    "audit_status": "observed_not_adopted_for_public_guidance",
+    "evidence_ref": "Codex-Termux-Private:docs/audits/0.128.0-termux.md"
   },
-  "rollback_version": "0.124.0-termux",
-  "rollback_policy": "Reinstall the last audited runtime version explicitly.",
+  "rollback_version": null,
+  "rollback_policy": "No public rollback guidance while distribution is withheld.",
   "distribution_strategy": "public-metadata-private-audit",
   "audited_at": "2026-05-03T00:00:00+09:00",
   "updated_at": "2026-05-03T00:00:00+09:00"

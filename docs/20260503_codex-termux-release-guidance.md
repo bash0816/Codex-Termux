@@ -2,46 +2,34 @@
 
 ## 目的
 
-- public repo で end user に約束する install/update/rollback 導線を明確にする
+- public repo がどの条件まで end user 向け guidance を出さないかを明確にする
 
 ## 現時点の前提
 
 - public npm package はまだ提供していない
-- support 対象は audited metadata に登録済みの runtime のみ
 - current audited runtime は `@mmmbuto/codex-cli-termux@0.124.0-termux`
+- ただし `@mmmbuto/codex-cli-termux` を runtime line として使っている間は、public OSS 配布物としては出さない
 - `canonical_package_name: null` は public wrapper package 未提供を意味する
 
 ## Install
 
-```sh
-npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
-codex --version
-codex login status
-```
+- 現時点では public end-user 向け install guidance は出さない
+- private 監査で使っている install command は evidence として private repo に残す
 
 ## Update
 
-- current runtime には public な self-update command が見えていない
-- manifest 上の update strategy は `manual_reinstall_audited_runtime`
-- そのため update は audited version を明示した再 install で行う
+- manifest 上の update strategy は `not_publicly_distributed_while_using_mmmbuto_runtime`
 - `0.128.0-termux` では `codex update` capability は観測済みだが、まだ public guidance には採用していない
-
-```sh
-npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
-```
+- public end-user 向け update guidance は出さない
 
 ## Rollback
 
-- rollback は最後の audited runtime version を明示して再 install する
-- current rollback target は `0.124.0-termux`
-
-```sh
-npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
-```
+- public end-user 向け rollback guidance は出さない
+- rollback/restore の evidence は private repo に保持する
 
 ## Source of Truth
 
-- support version と install/update command の正本は
+- tracked runtime と distribution policy の正本は
   - `config/codex-termux-release-manifest.json`
 - runtime provenance と実機監査ログの正本は private repo に保持する
 - current audit evidence reference:

@@ -12,9 +12,9 @@ Codex を Termux で配布するための public リポジトリ。
 
 - public bootstrap 段階
 - 実調査と runtime 監査は private repo `Codex-Termux-Private` で進行
-- public 側は user-facing な README / manifest / release docs を正本として持つ
-- まだ public npm package は提供していない
-- `canonical_package_name: null` は、public wrapper package 未提供を意味する
+- public 側は README / manifest / release docs の正本を持つ
+- ただし runtime が `@mmmbuto/codex-cli-termux` に依存している間は、OSS 配布物としては公開しない
+- `canonical_package_name: null` は public wrapper package 未提供を意味する
 
 ## private repo
 
@@ -26,9 +26,10 @@ Codex を Termux で配布するための public リポジトリ。
 - public へは検証済み manifest / release 導線だけを先に持ち込む
 - wrapper package は後段 PoC に回す
 
-## Supported Runtime
+## Tracked Runtime
 
-audited metadata に登録済みの runtime だけを support 対象とする。
+監査対象として追跡している runtime 情報。
+現時点では public OSS 配布の support 表明ではない。
 
 - runtime package: `@mmmbuto/codex-cli-termux`
 - latest audited runtime: `0.124.0-termux`
@@ -38,26 +39,10 @@ audited metadata に登録済みの runtime だけを support 対象とする。
 
 正本は [config/codex-termux-release-manifest.json](/data/data/com.termux/files/home/Codex-Termux/config/codex-termux-release-manifest.json)。
 
-## Install
+## Public Distribution
 
-現時点の audited runtime install 例:
-
-```sh
-npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
-codex --version
-codex login status
-```
-
-## Update
-
-この line には public な self-update command が見えていない。
-更新は `manual_reinstall_audited_runtime` strategy として扱い、audited metadata を確認したうえで対象 version を明示して再 install する。
-`0.128.0-termux` では `codex update` capability 自体は観測済みだが、audited guidance にはまだ採用していない。
-
-例:
-
-```sh
-npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
-```
+- `@mmmbuto/codex-cli-termux` を runtime line として使っている間は、public OSS 配布物としては出さない
+- install / update / rollback の end-user guidance も現時点では公開しない
+- `0.128.0-termux` で `codex update` capability 自体は観測済みだが、public guidance には採用していない
 
 release guidance は [docs/20260503_codex-termux-release-guidance.md](/data/data/com.termux/files/home/Codex-Termux/docs/20260503_codex-termux-release-guidance.md) を参照。
