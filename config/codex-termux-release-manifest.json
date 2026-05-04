@@ -1,0 +1,27 @@
+{
+  "canonical_package_name": null,
+  "canonical_package_status": "withheld",
+  "public_distribution_status": "withheld",
+  "support_status": "tracked_not_public_supported",
+  "latest_audited_version": "0.124.0-termux",
+  "supported_versions": [
+    "0.124.0-termux"
+  ],
+  "platform": "android",
+  "arch": "arm64",
+  "planned_wrapper_package": {
+    "name": "@bash0816/codex-termux",
+    "status": "planned_not_published",
+    "scope": "wrapper_package"
+  },
+  "gate_summary": "canonical昇格はpublish/registry verification後、install guidanceは別gate。",
+  "install_command": null,
+  "update_strategy": "not_publicly_distributed",
+  "update_command": null,
+  "update_guidance": null,
+  "rollback_version": null,
+  "rollback_policy": "No public rollback guidance while distribution is withheld.",
+  "distribution_strategy": "public-metadata-only",
+  "audited_at": "2026-05-03T00:00:00+09:00",
+  "updated_at": "2026-05-03T00:00:00+09:00"
+}
