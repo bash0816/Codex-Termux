@@ -52,6 +52,7 @@ codex login status
 
 この line には public な self-update command が見えていない。
 更新は `manual_reinstall_audited_runtime` strategy として扱い、audited metadata を確認したうえで対象 version を明示して再 install する。
+`0.128.0-termux` では `codex update` capability 自体は観測済みだが、audited guidance にはまだ採用していない。
 
 例:
 

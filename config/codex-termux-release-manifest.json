@@ -22,6 +22,14 @@
   "update_strategy": "manual_reinstall_audited_runtime",
   "update_command": null,
   "update_guidance": "npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux",
+  "update_capability": {
+    "available": true,
+    "self_update_command": "codex update",
+    "target_package": "@mmmbuto/codex-cli-termux@latest",
+    "observed_runtime_version": "0.128.0-termux",
+    "resolved_target_version": "0.128.0-termux",
+    "audit_status": "observed_not_adopted_for_public_guidance"
+  },
   "rollback_version": "0.124.0-termux",
   "rollback_policy": "Reinstall the last audited runtime version explicitly.",
   "distribution_strategy": "public-metadata-private-audit",

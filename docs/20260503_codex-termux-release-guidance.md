@@ -24,6 +24,7 @@ codex login status
 - current runtime には public な self-update command が見えていない
 - manifest 上の update strategy は `manual_reinstall_audited_runtime`
 - そのため update は audited version を明示した再 install で行う
+- `0.128.0-termux` では `codex update` capability は観測済みだが、まだ public guidance には採用していない
 
 ```sh
 npm install -g @mmmbuto/codex-cli-termux@0.124.0-termux
