@@ -27,6 +27,18 @@ on:
         description: 'Verification-only skeleton workflow while public support remains withheld'
         required: false
         default: 'verify-only'
+      publish:
+        description: 'Attempt guarded publish flow'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      npm_tag:
+        description: 'npm dist-tag to use when publishing'
+        required: false
+        default: 'latest'
 
 jobs:
   verify:
@@ -49,6 +61,7 @@ jobs:
           node --check packages/codex-termux/bin/codex-exec.js
           node --check packages/codex-termux/lib/launcher.js
           node --check scripts/check-public-release-skeleton.js
+          node --check scripts/check-public-publish-guard.js
 
       - name: Manifest / README drift check
         run: node scripts/check-public-release-skeleton.js
@@ -56,3 +69,17 @@ jobs:
       - name: npm pack dry run
         working-directory: packages/codex-termux
         run: npm pack --dry-run
+
+  publish-guard:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check publish guard
+        run: node scripts/check-public-publish-guard.js
