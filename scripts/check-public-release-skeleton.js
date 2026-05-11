@@ -45,6 +45,9 @@ must(rootReadme.includes('packages/codex-termux'), 'root README missing package 
 must(guidance.includes('package-prep'), 'guidance missing package-prep wording');
 must(guidance.includes('withheld'), 'guidance missing withheld wording');
 must(guidance.includes('0.130.0'), 'guidance missing tracked version');
+must(fs.readFileSync(path.join(repoRoot, 'scripts', 'stage-public-android-runtime.sh'), 'utf8').includes('--source-sha'), 'stage helper missing source provenance flags');
+must(fs.readFileSync(path.join(repoRoot, 'scripts', 'stage-public-android-runtime.sh'), 'utf8').includes('sha256sums.txt'), 'stage helper missing checksum verification');
+must(fs.readFileSync(path.join(repoRoot, 'scripts', 'stage-public-android-runtime.sh'), 'utf8').includes('pre-existing staged file'), 'stage helper missing pre-state guard');
 
 const expectedBins = ['codex-termux', 'codex', 'codex-exec'];
 for (const binName of expectedBins) {
