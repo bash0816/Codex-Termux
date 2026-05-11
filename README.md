@@ -28,4 +28,4 @@ Codex を Termux 向けに整えるための public release prep リポジトリ
 
 - release guidance: [`docs/20260503_codex-termux-release-guidance.md`](docs/20260503_codex-termux-release-guidance.md)
 - release manifest: [`config/codex-termux-release-manifest.json`](config/codex-termux-release-manifest.json)
-- local stage helper: [`scripts/stage-public-android-runtime.sh`](scripts/stage-public-android-runtime.sh)
+- provenance-aware local stage helper: [`scripts/stage-public-android-runtime.sh`](scripts/stage-public-android-runtime.sh)
