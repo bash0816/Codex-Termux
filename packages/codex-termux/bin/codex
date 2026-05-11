@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TERMUX_PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+
+sanitize_ld_library_path() {
+  old_ld_library_path="${LD_LIBRARY_PATH:-}"
+  old_ifs=${IFS-}
+  IFS=:
+  sanitized=""
+  for entry in $old_ld_library_path; do
+    [ -z "$entry" ] && continue
+    case "$entry" in
+      "$TERMUX_PREFIX/lib"|"$TERMUX_PREFIX/libexec"|"/data/data/com.termux/files/usr/lib"|"/data/data/com.termux/files/usr/libexec")
+        continue
+        ;;
+    esac
+    if [ -z "$sanitized" ]; then
+      sanitized="$entry"
+    else
+      sanitized="$sanitized:$entry"
+    fi
+  done
+  IFS=$old_ifs
+
+  if [ -n "$sanitized" ]; then
+    printf '%s:%s' "$SCRIPT_DIR" "$sanitized"
+  else
+    printf '%s' "$SCRIPT_DIR"
+  fi
+}
+
+if [ ! -x "$SCRIPT_DIR/codex.bin" ]; then
+  echo "missing packaged runtime: $SCRIPT_DIR/codex.bin" >&2
+  echo "stage Android artifacts with: codex-termux stage-android-runtime <android-release-dir> [libc++_shared.so]" >&2
+  exit 1
+fi
+
+export CODEX_MANAGED_BY_NPM=1
+export CODEX_SELF_EXE="$SCRIPT_DIR/codex"
+export LD_LIBRARY_PATH="$(sanitize_ld_library_path)"
+
+exec "$SCRIPT_DIR/codex.bin" "$@"

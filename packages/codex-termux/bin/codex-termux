@@ -1,0 +1,42 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+
+usage() {
+  cat <<'EOF'
+usage:
+  codex-termux status
+  codex-termux stage-android-runtime <android-release-dir> [libc++_shared.so]
+
+notes:
+  - package-prep only
+  - public distribution is withheld
+  - stage-android-runtime copies codex, codex-exec, and libc++_shared.so into package bin/
+EOF
+}
+
+if [ "$#" -eq 0 ]; then
+  usage
+  exit 0
+fi
+
+subcommand=$1
+shift
+
+case "$subcommand" in
+  status)
+    cat <<'EOF'
+@bash0816/codex-termux is a withheld package-prep skeleton.
+Current scope: launcher reconstruction and local stage support only.
+EOF
+    ;;
+  stage-android-runtime)
+    exec "$ROOT_DIR/lib/stage-android-runtime.sh" "$ROOT_DIR" "$@"
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
