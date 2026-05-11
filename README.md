@@ -1,35 +1,31 @@
 # Codex-Termux
 
-Codex を Termux で配布するための public リポジトリ。
+Codex を Termux 向けに整えるための public release prep リポジトリ。
 
 ## 役割
 
-- end-user 向け README
-- release artifact / package / CI/CD
-- 公開用の manifest / release docs / package 導線を管理
+- package-prep 用の README / manifest / workflow を管理する
+- `packages/codex-termux` の public skeleton を保持する
+- release artifact の stage 補助と drift check をまとめる
 
 ## 現在の状態
 
-- public bootstrap 段階
-- public 側は README / manifest / release docs の正本を持つ
-- まだ公開配布の条件を満たしていないため、OSS 配布物としては公開しない
-- `@bash0816/codex-termux` は planned wrapper package だが、まだ公開されておらず install できない
-- `canonical_package_name: null` は public wrapper package 未提供を意味する
-- gate summary: canonical昇格は publish / registry verification 後、install guidance は別 gate。
+- public distribution は withheld
+- `@bash0816/codex-termux` は package-prep 前提で、まだ publish 済みではない
+- tracked internal baseline は `0.130.0` に更新済み
+- previous baseline `0.128.0` は retained
+- install / update / rollback の end-user guidance はまだ出さない
+- canonical package は registry verification 後に扱う
 
-## Current Scope
+## 現在のスコープ
 
-現時点では public OSS 配布の support 表明ではない。
-
-- latest audited runtime line: `0.124.0-termux`
+- tracked version: `0.130.0`
 - platform: `android`
 - arch: `arm64`
+- package skeleton: [`packages/codex-termux`](packages/codex-termux)
 
-正本は [`config/codex-termux-release-manifest.json`](config/codex-termux-release-manifest.json)。
+## Guidance
 
-## Public Distribution
-
-- install / update / rollback の end-user guidance も現時点では公開しない
-- planned wrapper package があるが、現時点では公開 install 導線として使えない
-
-release guidance は [`docs/20260503_codex-termux-release-guidance.md`](docs/20260503_codex-termux-release-guidance.md) を参照。
+- release guidance: [`docs/20260503_codex-termux-release-guidance.md`](docs/20260503_codex-termux-release-guidance.md)
+- release manifest: [`config/codex-termux-release-manifest.json`](config/codex-termux-release-manifest.json)
+- local stage helper: [`scripts/stage-public-android-runtime.sh`](scripts/stage-public-android-runtime.sh)
