@@ -32,7 +32,7 @@
 
 - package skeleton は `packages/codex-termux` に置く
 - CI では syntax check / manifest-README drift check / `npm pack --dry-run` を行う
-- local stage は private path 固定にしない補助 script を使う
+- local stage は provenance-aware helper を使う
 
 ## Source of Truth
 
