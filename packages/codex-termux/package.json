@@ -1,0 +1,20 @@
+{
+  "name": "@bash0816/codex-termux",
+  "version": "0.130.0",
+  "description": "Termux wrapper package for OpenAI Codex Android runtime",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "codex-termux": "bin/codex-termux",
+    "codex": "bin/codex.js",
+    "codex-exec": "bin/codex-exec.js"
+  },
+  "files": [
+    "README.md",
+    "bin/",
+    "lib/"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
