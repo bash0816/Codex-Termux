@@ -1,31 +1,46 @@
 # Codex-Termux
 
-Codex を Termux 向けに整えるための public release prep リポジトリ。
+Codex wrapper package for Termux.
 
-## 役割
+Termux 向け Codex wrapper package です。
 
-- package-prep 用の README / manifest / workflow を管理する
-- `packages/codex-termux` の public skeleton を保持する
-- release artifact の stage 補助と drift check をまとめる
+## Status / 状態
 
-## 現在の状態
+Public release preparation is in progress.
 
-- public distribution は withheld
-- `@bash0816/codex-termux` は package-prep 前提で、まだ publish 済みではない
-- tracked internal baseline は `0.130.0` に更新済み
-- previous baseline `0.128.0` は retained
-- install / update / rollback の end-user guidance はまだ出さない
-- canonical package は registry verification 後に扱う
+現在は public release 準備中です。
 
-## 現在のスコープ
+This repository is public, but the package is not published yet.
 
-- tracked version: `0.130.0`
-- platform: `android`
-- arch: `arm64`
-- package skeleton: [`packages/codex-termux`](packages/codex-termux)
+このリポジトリは public ですが、package はまだ未公開です。
 
-## Guidance
+Public support remains withheld.
 
-- release guidance: [`docs/20260503_codex-termux-release-guidance.md`](docs/20260503_codex-termux-release-guidance.md)
-- release manifest: [`config/codex-termux-release-manifest.json`](config/codex-termux-release-manifest.json)
-- provenance-aware local stage helper: [`scripts/stage-public-android-runtime.sh`](scripts/stage-public-android-runtime.sh)
+現時点ではまだ公開サポートしていません。
+
+Tracked version:
+
+確認中の version:
+
+- `0.130.0`
+
+## Package / パッケージ
+
+```text
+@bash0816/codex-termux
+```
+
+Package skeleton:
+
+package skeleton:
+
+```text
+packages/codex-termux
+```
+
+## Source Of Truth / 正本
+
+- release manifest:
+  - `config/codex-termux-release-manifest.json`
+- release guidance:
+  - `docs/20260503_codex-termux-release-guidance.md`
