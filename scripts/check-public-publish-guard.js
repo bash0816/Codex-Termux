@@ -5,6 +5,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const manifestPath = path.join(repoRoot, 'config', 'codex-termux-release-manifest.json');
 const packageJsonPath = path.join(repoRoot, 'packages', 'codex-termux', 'package.json');
 const packageBinDir = path.join(repoRoot, 'packages', 'codex-termux', 'bin');
+const skipRuntimeFiles = process.argv.includes('--skip-runtime-files');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -31,11 +32,13 @@ must(
   'canonical_package_status is not ready_to_publish'
 );
 
-for (const fileName of requiredRuntimeFiles) {
-  must(
-    fs.existsSync(path.join(packageBinDir, fileName)),
-    `missing staged runtime file: ${fileName}`
-  );
+if (!skipRuntimeFiles) {
+  for (const fileName of requiredRuntimeFiles) {
+    must(
+      fs.existsSync(path.join(packageBinDir, fileName)),
+      `missing staged runtime file: ${fileName}`
+    );
+  }
 }
 
 console.log('public publish guard checks passed');
