@@ -39,6 +39,26 @@ on:
         description: 'npm dist-tag to use when publishing'
         required: false
         default: 'latest'
+      artifact_run_id:
+        description: 'Codex-Termux-Private workflow run id that produced the verified artifact'
+        required: false
+        default: ''
+      artifact_name:
+        description: 'Artifact bundle name from the private workflow run'
+        required: false
+        default: ''
+      source_repository:
+        description: 'Expected source repository recorded in manifest.json'
+        required: false
+        default: 'DioNanos/codex-termux'
+      source_ref:
+        description: 'Expected source ref recorded in manifest.json'
+        required: false
+        default: ''
+      source_sha:
+        description: 'Expected source sha recorded in manifest.json'
+        required: false
+        default: ''
 
 jobs:
   verify:
@@ -82,4 +102,98 @@ jobs:
           node-version: '22'
 
       - name: Check publish guard
+        run: node scripts/check-public-publish-guard.js --skip-runtime-files
+
+  publish-package:
+    needs: publish-guard
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Validate publish inputs
+        run: |
+          set -eu
+          [ "${GITHUB_REF_NAME}" = "main" ] || { echo "publish is only allowed from main" >&2; exit 1; }
+          [ -n "${{ inputs.artifact_run_id }}" ] || { echo "missing artifact_run_id" >&2; exit 1; }
+          [ -n "${{ inputs.artifact_name }}" ] || { echo "missing artifact_name" >&2; exit 1; }
+          [ -n "${{ inputs.source_repository }}" ] || { echo "missing source_repository" >&2; exit 1; }
+          [ -n "${{ inputs.source_ref }}" ] || { echo "missing source_ref" >&2; exit 1; }
+          [ -n "${{ inputs.source_sha }}" ] || { echo "missing source_sha" >&2; exit 1; }
+
+      - name: Download verified private artifact
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_PRIVATE_ARTIFACT_TOKEN }}
+        run: |
+          set -eu
+          [ -n "${GH_TOKEN:-}" ] || { echo "missing CODEX_PRIVATE_ARTIFACT_TOKEN" >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/private-artifact"
+          gh run download "${{ inputs.artifact_run_id }}" \
+            --repo bash0816/Codex-Termux-Private \
+            --name "${{ inputs.artifact_name }}" \
+            --dir "$RUNNER_TEMP/private-artifact"
+
+      - name: Stage verified Android runtime
+        run: |
+          set -eu
+          sh scripts/stage-public-android-runtime.sh \
+            --artifact-dir "$RUNNER_TEMP/private-artifact" \
+            --source-repository "${{ inputs.source_repository }}" \
+            --source-ref "${{ inputs.source_ref }}" \
+            --source-sha "${{ inputs.source_sha }}"
+
+      - name: Check publish guard
         run: node scripts/check-public-publish-guard.js
+
+      - name: npm pack dry run before publish
+        working-directory: packages/codex-termux
+        run: npm pack --dry-run
+
+      - name: Re-check publish guard before npm publish
+        run: node scripts/check-public-publish-guard.js
+
+      - name: Publish package
+        working-directory: packages/codex-termux
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -eu
+          [ -n "${NODE_AUTH_TOKEN:-}" ] || { echo "missing NPM_TOKEN" >&2; exit 1; }
+          npm publish --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify registry publication
+        run: |
+          set -eu
+          EXPECTED_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/package.json','utf8')).version")
+          EXPECTED_TAG="${{ inputs.npm_tag }}"
+          tries=0
+          max_tries=6
+          while :; do
+            tries=$((tries + 1))
+            versions=$(npm view @bash0816/codex-termux versions --json 2>/dev/null || true)
+            tag=$(npm view @bash0816/codex-termux dist-tags."${EXPECTED_TAG}" 2>/dev/null || true)
+            if printf '%s' "$versions" | grep -q "\"$EXPECTED_VERSION\"" && [ "$tag" = "$EXPECTED_VERSION" ]; then
+              break
+            fi
+            if [ "$tries" -ge "$max_tries" ]; then
+              echo "registry verification failed: versions=$versions tag=$tag expected=$EXPECTED_VERSION" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Verify published package file shape
+        run: |
+          set -eu
+          EXPECTED_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/package.json','utf8')).version")
+          temp_dir=$(mktemp -d)
+          trap 'rm -rf "$temp_dir"' EXIT INT TERM
+          npm pack @bash0816/codex-termux@"$EXPECTED_VERSION" --pack-destination "$temp_dir" >/dev/null
+          tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/codex.bin'
+          tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/codex-exec.bin'
+          tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/libc++_shared.so'
