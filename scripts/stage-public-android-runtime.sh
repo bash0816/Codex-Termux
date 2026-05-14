@@ -64,7 +64,14 @@ done
 BIN_DIR="$PACKAGE_ROOT/bin"
 STAGE_HELPER="$PACKAGE_ROOT/lib/stage-android-runtime.sh"
 TEMP_RUNTIME_DIR=
-TMP_BASE="${TMPDIR:-/data/data/com.termux/files/usr/tmp}"
+TMP_BASE="${TMPDIR:-}"
+if [ -z "$TMP_BASE" ]; then
+  if [ -d /data/data/com.termux/files/usr/tmp ]; then
+    TMP_BASE=/data/data/com.termux/files/usr/tmp
+  else
+    TMP_BASE=/tmp
+  fi
+fi
 STAGED=0
 
 if [ ! -d "$BIN_DIR" ]; then
