@@ -16,7 +16,9 @@ ARTIFACT_DIR=
 SOURCE_REPOSITORY=
 SOURCE_REF=
 SOURCE_SHA=
-PACKAGE_ROOT=/data/data/com.termux/files/home/Codex-Termux/packages/codex-termux
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+PACKAGE_ROOT="$REPO_ROOT/packages/codex-termux"
 
 while [ "$#" -gt 0 ]; do
   case $1 in
