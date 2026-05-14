@@ -1,8 +1,8 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "prepared_not_published",
-  "public_distribution_status": "withheld",
-  "support_status": "prepared_release_candidate_not_public_supported",
+  "canonical_package_status": "ready_to_publish",
+  "public_distribution_status": "publish_ready",
+  "support_status": "publish_ready_not_yet_public_supported",
   "latest_audited_version": "0.130.0",
   "tracked_versions": [
     "0.130.0"
@@ -14,10 +14,10 @@
   "arch": "arm64",
   "planned_wrapper_package": {
     "name": "@bash0816/codex-termux",
-    "status": "prepared_not_published",
+    "status": "ready_to_publish",
     "scope": "wrapper_package"
   },
-  "gate_summary": "tracked internal baseline updated; previous baseline retained; public support remains withheld until publish/install gate passes.",
+  "gate_summary": "publish gate is ready; package is not published yet; public support remains withheld until registry verification passes.",
   "install_command": null,
   "update_strategy": "not_publicly_distributed",
   "update_command": null,
@@ -25,6 +25,6 @@
   "rollback_version": null,
   "rollback_policy": "No public rollback guidance while distribution is withheld.",
   "distribution_strategy": "public-metadata-only",
-  "audited_at": "2026-05-11T12:00:00+09:00",
-  "updated_at": "2026-05-11T12:00:00+09:00"
+  "audited_at": "2026-05-14T12:00:00+09:00",
+  "updated_at": "2026-05-14T12:00:00+09:00"
 }
