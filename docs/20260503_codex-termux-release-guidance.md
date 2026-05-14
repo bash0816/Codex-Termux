@@ -3,6 +3,7 @@
 ## Status
 
 - this repository is public
+- public publish gate is ready
 - the package is not published yet
 - public support remains withheld
 - tracked version: `0.130.0`

@@ -6,13 +6,13 @@ Termux 向け Codex wrapper package です。
 
 ## Status / 状態
 
-Public release preparation is in progress.
+Public publish gate is ready.
 
-現在は public release 準備中です。
+現在は public publish gate 準備完了です。
 
-This repository is public, but the package is not published yet.
+This repository is public, and the package release workflow is ready, but the package is not published yet.
 
-このリポジトリは public ですが、package はまだ未公開です。
+このリポジトリは public で、package release workflow も準備済みですが、package はまだ未公開です。
 
 Public support remains withheld.
 
