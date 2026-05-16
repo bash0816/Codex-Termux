@@ -1,8 +1,8 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "publish_ready",
-  "support_status": "publish_ready_not_yet_public_supported",
+  "canonical_package_status": "published",
+  "public_distribution_status": "published",
+  "support_status": "public_supported",
   "latest_audited_version": "0.130.0",
   "tracked_versions": [
     "0.130.0"
@@ -14,17 +14,17 @@
   "arch": "arm64",
   "planned_wrapper_package": {
     "name": "@bash0816/codex-termux",
-    "status": "ready_to_publish",
+    "status": "published",
     "scope": "wrapper_package"
   },
-  "gate_summary": "publish gate is ready; package is not published yet; public support remains withheld until registry verification passes.",
-  "install_command": null,
-  "update_strategy": "not_publicly_distributed",
-  "update_command": null,
-  "update_guidance": null,
-  "rollback_version": null,
-  "rollback_policy": "No public rollback guidance while distribution is withheld.",
-  "distribution_strategy": "public-metadata-only",
+  "gate_summary": "package published and registry verified; tracked version 0.130.0 is publicly installable on Termux.",
+  "install_command": "npm install -g @bash0816/codex-termux@latest",
+  "update_strategy": "npm_reinstall_audited_package",
+  "update_command": "npm install -g @bash0816/codex-termux@latest",
+  "update_guidance": "Use npm to reinstall the latest published package. Do not install the upstream @openai/codex package directly on Termux.",
+  "rollback_version": "0.130.0",
+  "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
+  "distribution_strategy": "public-npm-package",
   "audited_at": "2026-05-14T12:00:00+09:00",
-  "updated_at": "2026-05-14T12:00:00+09:00"
+  "updated_at": "2026-05-16T10:00:00+09:00"
 }
