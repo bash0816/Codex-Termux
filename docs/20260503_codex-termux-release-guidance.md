@@ -3,9 +3,8 @@
 ## Status
 
 - this repository is public
-- public publish gate is ready
-- the package is not published yet
-- public support remains withheld
+- the package is published
+- public support is available
 - tracked version: `0.130.0`
 - package name: `@bash0816/codex-termux`
 
@@ -16,15 +15,29 @@
   - syntax check
   - manifest / README drift check
   - `npm pack --dry-run`
-- local runtime staging uses:
-  - `scripts/stage-public-android-runtime.sh`
+- publish and registry verification have completed
 
-## Not Available Yet
+## Install
 
-- install guidance
-- update guidance
-- rollback guidance
-- supported-version claim
+```sh
+npm install -g @bash0816/codex-termux@latest
+codex --version
+codex login status
+```
+
+## Update
+
+```sh
+npm install -g @bash0816/codex-termux@latest
+```
+
+Do not install the upstream `@openai/codex` package directly on Termux.
+
+## Rollback
+
+```sh
+npm install -g @bash0816/codex-termux@0.130.0
+```
 
 ## Source Of Truth
 
