@@ -6,17 +6,17 @@ Termux 向け Codex wrapper package です。
 
 ## Status / 状態
 
-Public publish gate is ready.
+Public package release is live.
 
-現在は public publish gate 準備完了です。
+現在は public package を公開中です。
 
-This repository is public, and the package release workflow is ready, but the package is not published yet.
+This repository is public, and the package is published.
 
-このリポジトリは public で、package release workflow も準備済みですが、package はまだ未公開です。
+このリポジトリは public で、package も公開済みです。
 
-Public support remains withheld.
+Public support is available for the published package.
 
-現時点ではまだ公開サポートしていません。
+公開 package をサポートします。
 
 Tracked version:
 
@@ -30,9 +30,29 @@ Tracked version:
 @bash0816/codex-termux
 ```
 
-Package skeleton:
+## Install / インストール
 
-package skeleton:
+```sh
+npm install -g @bash0816/codex-termux@latest
+codex --version
+codex login status
+```
+
+## Update / 更新
+
+```sh
+npm install -g @bash0816/codex-termux@latest
+```
+
+## Rollback / ロールバック
+
+```sh
+npm install -g @bash0816/codex-termux@0.130.0
+```
+
+Package files:
+
+package files:
 
 ```text
 packages/codex-termux

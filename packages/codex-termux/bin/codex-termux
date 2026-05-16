@@ -11,8 +11,7 @@ usage:
   codex-termux stage-android-runtime <android-release-dir> [libc++_shared.so]
 
 notes:
-  - package-prep only
-  - public distribution is withheld
+  - published wrapper package
   - stage-android-runtime copies codex, codex-exec, and libc++_shared.so into package bin/
 EOF
 }
@@ -28,8 +27,8 @@ shift
 case "$subcommand" in
   status)
     cat <<'EOF'
-@bash0816/codex-termux is a withheld package-prep skeleton.
-Current scope: launcher reconstruction and local stage support only.
+@bash0816/codex-termux is a published Termux wrapper package.
+Current scope: launcher support, staged runtime packaging, and npm-managed install/update.
 EOF
     ;;
   stage-android-runtime)
