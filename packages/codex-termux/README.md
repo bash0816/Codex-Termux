@@ -1,12 +1,12 @@
 # @bash0816/codex-termux
 
-Termux 向け Codex package-prep skeleton です。
+Termux 向け Codex package です。
 
 ## Status
 
-- withheld package-prep
-- not published
-- not installable as a public distribution yet
+- published package
+- public support available
+- npm-managed install/update flow
 
 ## Scope
 
@@ -38,5 +38,6 @@ directory.
 
 ## Notes
 
-- This repository is package-prep only.
-- Public install / update / rollback guidance is withheld until publish and registry verification are complete.
+- Install with `npm install -g @bash0816/codex-termux@latest`
+- Update with the same npm install command
+- Roll back by installing an explicit published version
