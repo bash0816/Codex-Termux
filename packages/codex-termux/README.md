@@ -39,5 +39,6 @@ directory.
 ## Notes
 
 - Install with `npm install -g @bash0816/codex-termux@latest`
-- Update with the same npm install command
+- `codex update` is intercepted and rerouted to the same npm install command
+- Update with `npm install -g @bash0816/codex-termux@latest`
 - Roll back by installing an explicit published version
