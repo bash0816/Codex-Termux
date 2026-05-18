@@ -4,6 +4,8 @@
   "public_distribution_status": "published",
   "support_status": "public_supported",
   "latest_audited_version": "0.130.0",
+  "latest_candidate_version": "0.130.0",
+  "candidate_state_status": "complete",
   "tracked_versions": [
     "0.130.0"
   ],
