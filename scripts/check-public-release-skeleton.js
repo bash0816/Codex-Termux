@@ -31,6 +31,8 @@ must(manifest.canonical_package_name === pkg.name, 'manifest/package name drift'
 must(manifest.canonical_package_status === 'published', 'manifest package status drift');
 must(manifest.support_status === 'public_supported', 'manifest support status drift');
 must(manifest.latest_audited_version === '0.130.0', 'manifest tracked version drift');
+must(typeof manifest.latest_candidate_version === 'string', 'manifest candidate version missing');
+must(typeof manifest.candidate_state_status === 'string', 'manifest candidate state missing');
 must(Array.isArray(manifest.tracked_versions) && manifest.tracked_versions.includes('0.130.0'), 'manifest tracked versions drift');
 must(Array.isArray(manifest.historical_baselines) && manifest.historical_baselines.includes('0.128.0'), 'manifest historical baseline drift');
 must(manifest.planned_wrapper_package?.name === pkg.name, 'planned wrapper package drift');
