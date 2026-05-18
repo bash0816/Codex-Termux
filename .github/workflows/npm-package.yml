@@ -60,6 +60,9 @@ on:
         required: false
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
