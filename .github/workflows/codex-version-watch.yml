@@ -50,14 +50,24 @@ jobs:
           echo "pending candidate exists: ${{ steps.manifest.outputs.latest_candidate }} state=${{ steps.manifest.outputs.candidate_state }}"
           exit 0
 
-      - name: Verify fork tag exists
+      - name: Check fork tag availability
+        id: fork_tag
         if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
         run: |
           set -eu
-          git ls-remote --exit-code --tags https://github.com/DioNanos/codex-termux.git "refs/tags/v${{ steps.latest.outputs.version }}"
+          if git ls-remote --exit-code --tags https://github.com/DioNanos/codex-termux.git "refs/tags/v${{ steps.latest.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop when fork tag is not ready yet
+        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.fork_tag.outputs.exists == 'false'
+        run: |
+          echo "upstream latest is ${{ steps.latest.outputs.version }}, but fork tag v${{ steps.latest.outputs.version }} is not available yet"
 
       - name: Create automation branch and update manifest
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.fork_tag.outputs.exists == 'true'
         env:
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
         run: |
@@ -73,7 +83,7 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_ENV"
 
       - name: Dispatch private external build
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.fork_tag.outputs.exists == 'true'
         env:
           GH_TOKEN: ${{ secrets.CODEX_PRIVATE_ARTIFACT_TOKEN }}
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
@@ -86,7 +96,7 @@ jobs:
             -f source_ref="v${CANDIDATE_VERSION}"
 
       - name: Create or reuse candidate PR
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.fork_tag.outputs.exists == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
