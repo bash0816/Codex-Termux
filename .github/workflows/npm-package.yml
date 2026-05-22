@@ -35,6 +35,14 @@ on:
         options:
           - 'false'
           - 'true'
+      publish_mode:
+        description: 'Publish mode: direct publishes immediately, stage requires later 2FA approval'
+        required: false
+        default: 'direct'
+        type: choice
+        options:
+          - 'direct'
+          - 'stage'
       npm_tag:
         description: 'npm dist-tag to use when publishing'
         required: false
@@ -83,6 +91,8 @@ jobs:
           node --check packages/codex-termux/bin/codex.js
           node --check packages/codex-termux/bin/codex-exec.js
           node --check packages/codex-termux/lib/launcher.js
+          node --check scripts/prepare-public-release-from-candidate.js
+          node --check scripts/sync-public-release-from-manifest.js
           node --check scripts/check-public-release-skeleton.js
           node --check scripts/check-public-publish-guard.js
 
@@ -160,16 +170,45 @@ jobs:
       - name: Re-check publish guard before npm publish
         run: node scripts/check-public-publish-guard.js
 
-      - name: Publish package
+      - name: Verify npm staged publishing support
+        env:
+          PUBLISH_MODE: ${{ inputs.publish_mode || 'direct' }}
+        run: |
+          set -eu
+          node_version="$(node -v | sed 's/^v//')"
+          npm_version="$(npm -v)"
+          echo "node=${node_version}"
+          echo "npm=${npm_version}"
+          if [ "${PUBLISH_MODE}" = "stage" ]; then
+            if [ "$(printf '%s\n' "22.14.0" "${node_version}" | sort -V | head -n1)" != "22.14.0" ]; then
+              echo "staged publishing requires node >= 22.14.0; got ${node_version}" >&2
+              exit 1
+            fi
+            if [ "$(printf '%s\n' "11.15.0" "${npm_version}" | sort -V | head -n1)" != "11.15.0" ]; then
+              echo "staged publishing requires npm >= 11.15.0; got ${npm_version}" >&2
+              exit 1
+            fi
+            npm stage --help >/dev/null
+          fi
+
+      - name: Publish or stage package
         working-directory: packages/codex-termux
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_MODE: ${{ inputs.publish_mode || 'direct' }}
+          NPM_TAG: ${{ inputs.npm_tag }}
         run: |
           set -eu
           [ -n "${NODE_AUTH_TOKEN:-}" ] || { echo "missing NPM_TOKEN" >&2; exit 1; }
-          npm publish --access public --tag "${{ inputs.npm_tag }}"
+          if [ "${PUBLISH_MODE}" = "stage" ]; then
+            npm stage publish --tag "${NPM_TAG}"
+            npm stage list @bash0816/codex-termux || true
+          else
+            npm publish --access public --tag "${NPM_TAG}"
+          fi
 
       - name: Verify registry publication
+        if: ${{ inputs.publish_mode != 'stage' }}
         run: |
           set -eu
           EXPECTED_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/package.json','utf8')).version")
@@ -191,6 +230,7 @@ jobs:
           done
 
       - name: Verify published package file shape
+        if: ${{ inputs.publish_mode != 'stage' }}
         run: |
           set -eu
           EXPECTED_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/package.json','utf8')).version")
@@ -200,3 +240,13 @@ jobs:
           tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/codex.bin'
           tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/codex-exec.bin'
           tar -tf "$temp_dir"/bash0816-codex-termux-"$EXPECTED_VERSION".tgz | grep -q 'package/bin/libc++_shared.so'
+
+      - name: Emit staged publish follow-up
+        if: ${{ inputs.publish_mode == 'stage' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -eu
+          echo "Package was staged, not published live."
+          echo "Approve it with 2FA from npmjs.com Staged Packages or via npm stage approve <stage-id>."
+          npm stage list @bash0816/codex-termux || true
