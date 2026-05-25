@@ -5,19 +5,15 @@ on:
     paths:
       - 'packages/codex-termux/**'
       - 'config/codex-termux-release-manifest.json'
-      - 'docs/20260503_codex-termux-release-guidance.md'
       - 'README.md'
       - 'scripts/**'
       - '.github/workflows/npm-package.yml'
   push:
     branches:
-      - dev
-      - staging
       - main
     paths:
       - 'packages/codex-termux/**'
       - 'config/codex-termux-release-manifest.json'
-      - 'docs/20260503_codex-termux-release-guidance.md'
       - 'README.md'
       - 'scripts/**'
       - '.github/workflows/npm-package.yml'
@@ -86,7 +82,6 @@ jobs:
           sh -n packages/codex-termux/bin/codex
           sh -n packages/codex-termux/bin/codex-exec
           sh -n packages/codex-termux/bin/codex-termux
-          sh -n packages/codex-termux/lib/stage-android-runtime.sh
           sh -n scripts/stage-public-android-runtime.sh
           node --check packages/codex-termux/bin/codex.js
           node --check packages/codex-termux/bin/codex-exec.js
