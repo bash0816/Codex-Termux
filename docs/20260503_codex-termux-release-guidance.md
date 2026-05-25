@@ -1,11 +1,11 @@
-# 2026-05-03 Codex-Termux Release Guidance
+# 2026-05-25 Codex-Termux Release Guidance
 
 ## Status
 
 - this repository is public
 - the package is published
 - public support is available
-- tracked version: `0.130.0`
+- tracked version: `0.131.0`
 - package name: `@bash0816/codex-termux`
 
 ## Current Scope
@@ -28,16 +28,10 @@ codex login status
 ## Update
 
 ```sh
-npm install -g @bash0816/codex-termux@latest
+npm install -g @bash0816/codex-termux@latest --force
 ```
 
 Do not install the upstream `@openai/codex` package directly on Termux.
-
-## Rollback
-
-```sh
-npm install -g @bash0816/codex-termux@0.130.0
-```
 
 ## Source Of Truth
 

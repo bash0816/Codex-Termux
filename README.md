@@ -4,6 +4,14 @@ Codex wrapper package for Termux.
 
 Termux 向け Codex wrapper package です。
 
+## ⚠️ v0.130.0 をお使いの方へ
+
+v0.130.0 に含まれるバイナリに不具合があることが判明しました。v0.131.0 で修正済みです。お手数ですが、以下のコマンドで更新をお願いします。
+
+```sh
+npm install -g @bash0816/codex-termux@latest --force
+```
+
 ## Status / 状態
 
 Public package release is live.
@@ -22,7 +30,7 @@ Tracked version:
 
 確認中の version:
 
-- `0.130.0`
+- `0.131.0`
 
 ## Package / パッケージ
 
@@ -41,21 +49,7 @@ codex login status
 ## Update / 更新
 
 ```sh
-npm install -g @bash0816/codex-termux@latest
-```
-
-## Rollback / ロールバック
-
-```sh
-npm install -g @bash0816/codex-termux@0.130.0
-```
-
-Package files:
-
-package files:
-
-```text
-packages/codex-termux
+npm install -g @bash0816/codex-termux@latest --force
 ```
 
 ## Source Of Truth / 正本

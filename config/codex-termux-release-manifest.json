@@ -3,10 +3,11 @@
   "canonical_package_status": "published",
   "public_distribution_status": "published",
   "support_status": "public_supported",
-  "latest_audited_version": "0.130.0",
-  "latest_candidate_version": "0.130.0",
+  "latest_audited_version": "0.131.0",
+  "latest_candidate_version": "0.131.0",
   "candidate_state_status": "complete",
   "tracked_versions": [
+    "0.131.0",
     "0.130.0"
   ],
   "historical_baselines": [
@@ -19,14 +20,14 @@
     "status": "published",
     "scope": "wrapper_package"
   },
-  "gate_summary": "package published and registry verified; tracked version 0.130.0 is publicly installable on Termux.",
+  "gate_summary": "package published and registry verified; tracked version 0.131.0 is publicly installable on Termux.",
   "install_command": "npm install -g @bash0816/codex-termux@latest",
   "update_strategy": "npm_reinstall_audited_package",
   "update_command": "npm install -g @bash0816/codex-termux@latest",
   "update_guidance": "Use npm to reinstall the latest published package. Do not install the upstream @openai/codex package directly on Termux.",
-  "rollback_version": "0.130.0",
+  "rollback_version": "0.131.0",
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
-  "audited_at": "2026-05-14T12:00:00+09:00",
-  "updated_at": "2026-05-16T10:00:00+09:00"
+  "audited_at": "2026-05-25T09:00:00+09:00",
+  "updated_at": "2026-05-25T09:00:00+09:00"
 }
