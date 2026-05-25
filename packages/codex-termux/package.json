@@ -1,7 +1,7 @@
 {
   "name": "@bash0816/codex-termux",
   "version": "0.131.0",
-  "description": "Termux wrapper package for OpenAI Codex Android runtime",
+  "description": "Termux wrapper package for Codex",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
