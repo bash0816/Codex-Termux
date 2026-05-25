@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'child_process';
 import { createRequire } from 'module';
 import { existsSync } from 'fs';
+import { constants as osConstants } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -184,7 +185,7 @@ export function runLauncher({ entryName, argv }) {
   if (!targetBinary) {
     console.error(
       `Unable to resolve a Codex binary for ${entryName}. ` +
-      'Stage local Android artifacts or install @openai/codex together with the platform package.'
+      'Install @openai/codex together with the Android platform package, or stage local codex.bin artifacts.'
     );
     process.exit(1);
   }
@@ -208,7 +209,7 @@ export function runLauncher({ entryName, argv }) {
 
   child.on('exit', (code, signal) => {
     if (signal) {
-      process.exit(128 + 1);
+      process.exit(128 + (osConstants.signals[signal] ?? 1));
       return;
     }
 
