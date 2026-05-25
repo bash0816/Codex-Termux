@@ -12,7 +12,7 @@
   "files": [
     "README.md",
     "bin/",
-    "lib/"
+    "lib/launcher.js"
   ],
   "engines": {
     "node": ">=18"
