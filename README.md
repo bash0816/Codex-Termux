@@ -1,66 +1,49 @@
 # Codex-Termux
 
-Codex wrapper package for Termux.
+Native Codex wrapper package for Termux.
 
-Termux 向け Codex wrapper package です。
+Termux 向け Codex ネイティブ wrapper package です。
+
+## ⚠️ Notice for v0.130.0 / v0.131.0 users
+
+v0.130.0 contains a binary bug. v0.131.0 has a broken `codex update` command. Both are fixed in v0.131.1. Please update.
+
+v0.130.0 にはバイナリの不具合があります。v0.131.0 は `codex update` が動作しない不具合があります。v0.131.1 で修正済みです。更新してください。
+
+```sh
+npm install -g @bash0816/codex-termux@latest --force
+```
 
 ## Status / 状態
 
-Public package release is live.
-
-現在は public package を公開中です。
-
-This repository is public, and the package is published.
-
-このリポジトリは public で、package も公開済みです。
-
-Public support is available for the published package.
-
-公開 package をサポートします。
-
-Tracked version:
-
-確認中の version:
-
-- `0.130.0`
-
-## Package / パッケージ
-
-```text
-@bash0816/codex-termux
-```
+- tracked version: `0.131.1`
+- package: `@bash0816/codex-termux`
 
 ## Install / インストール
 
 ```sh
 npm install -g @bash0816/codex-termux@latest
 codex --version
-codex login status
 ```
 
 ## Update / 更新
 
 ```sh
-npm install -g @bash0816/codex-termux@latest
+codex update
 ```
 
-## Rollback / ロールバック
+Or / または:
 
 ```sh
-npm install -g @bash0816/codex-termux@0.130.0
+npm install -g @bash0816/codex-termux@latest --force
 ```
 
-Package files:
+## Do Not Use / 非推奨
 
-package files:
+Do not install the upstream package directly on Termux.
 
-```text
-packages/codex-termux
+Termux では upstream package を直接 install しないでください。
+
+```sh
+npm install -g @openai/codex@latest  # ← Do not use on Termux
 ```
-
-## Source Of Truth / 正本
-
-- release manifest:
-  - `config/codex-termux-release-manifest.json`
-- release guidance:
-  - `docs/20260503_codex-termux-release-guidance.md`
