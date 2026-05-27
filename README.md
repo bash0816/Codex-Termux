@@ -14,20 +14,35 @@ v0.130.0 にはバイナリの不具合があります。v0.131.0 は `codex upd
 npm install -g @bash0816/codex-termux@latest --force
 ```
 
+## ⚠️ Provisional Release / 暫定リリース
+
+**v0.131.1 is a provisional release. The interactive TUI (`codex` without arguments) does not work at all in this build.** TUI support requires a full Android cross-compilation build and is planned for a future release.
+
+If you need the interactive TUI, please wait for the next release.
+
+**v0.131.1 は暫定リリースです。対話型 TUI（引数なしの `codex`）はこのビルドでは完全に動作しません。** TUI 対応には Android クロスコンパイルビルドが必要であり、次回リリースで対応予定です。
+
+対話型 TUI が必要な場合は、次のリリースをお待ちください。
+
 ## Status / 状態
 
 - tracked version: `0.131.1`
 - package: `@bash0816/codex-termux`
+- TUI: **not available** (planned for next release)
 
 ## Limitations / 制限事項
 
-Interactive TUI is currently unavailable in the Android build of `@bash0816/codex-termux`. If you run `codex` without arguments, it will exit with a message such as `interactive TUI is unavailable in this Android core build`.
+The interactive TUI is **completely non-functional** in this build. Running `codex` without arguments will immediately exit with:
 
-Use `codex exec` instead for non-interactive operation.
+```
+interactive TUI is unavailable in this Android core build
+```
 
-Android ビルドの `@bash0816/codex-termux` では、Interactive TUI は現在利用できません。引数なしで `codex` を実行すると、`interactive TUI is unavailable in this Android core build` のようなメッセージを表示して終了します。
+`codex exec` works and is the only supported mode in this release.
 
-非対話モードで動かす場合は `codex exec` を使用してください。
+この暫定ビルドでは対話型 TUI は**完全に動作しません**。引数なしで `codex` を実行すると即座に終了します。
+
+`codex exec` は動作します。現リリースで使用できるのはこのモードのみです。
 
 ## Usage / 使い方
 
