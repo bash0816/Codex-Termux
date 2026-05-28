@@ -1,0 +1,252 @@
+name: external-build-android-aarch64
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repository:
+        description: Source repository to build
+        required: true
+        type: string
+        default: DioNanos/codex-termux
+      source_ref:
+        description: Source ref to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      RUST_VERSION: "1.93.0"
+      ANDROID_NDK_REVISION: "r27c"
+      ANDROID_TARGET: aarch64-linux-android
+      ANDROID_API_LEVEL: "29"
+      BUNDLE_DIR: ${{ github.workspace }}/external-build-bundle
+    steps:
+      - name: Validate source_ref
+        run: |
+          set -eu
+          case "${{ inputs.source_repository }}" in
+            DioNanos/codex-termux)
+              case "${{ inputs.source_ref }}" in
+                main|dev|staging|feature/*|v*|rust-v*)
+                  ;;
+                *)
+                  echo "unsupported source_ref for fork line: ${{ inputs.source_ref }}" >&2
+                  exit 1
+                  ;;
+              esac
+              ;;
+            openai/codex)
+              case "${{ inputs.source_ref }}" in
+                rust-v0.131.0|rust-v0.133.0|rust-v0.13[4-9].*|rust-v0.1[4-9][0-9]*)
+                  ;;
+                *)
+                  echo "unsupported source_ref for upstream line: ${{ inputs.source_ref }}" >&2
+                  exit 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "unsupported source_repository: ${{ inputs.source_repository }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout source ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+          path: host-repo
+
+      - name: Checkout build source repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repository }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: source-repo
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify Python tomllib support
+        run: |
+          set -eu
+          python3 --version
+          python3 -c "import tomllib"
+
+      - name: Verify upstream workspace version when needed
+        if: inputs.source_repository == 'openai/codex'
+        env:
+          SOURCE_REF_INPUT: ${{ inputs.source_ref }}
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import pathlib, tomllib, re, os
+
+          path = pathlib.Path("source-repo/codex-rs/Cargo.toml")
+          data = tomllib.loads(path.read_text(encoding="utf-8"))
+          version = data["workspace"]["package"]["version"]
+          expected_ref = os.environ.get("SOURCE_REF_INPUT", "")
+          m = re.match(r"rust-v(.+)", expected_ref)
+          if m and version != m.group(1):
+              raise SystemExit(f"unexpected workspace.package.version: {version} (expected {m.group(1)})")
+          print(f"workspace.package.version={version}")
+          PY
+
+      - name: Install Rust 1.93.0
+        run: |
+          set -eu
+          rustup toolchain install "${RUST_VERSION}" --profile minimal
+          rustup target add "${ANDROID_TARGET}" --toolchain "${RUST_VERSION}"
+          rustup default "${RUST_VERSION}"
+
+      - name: Download Android NDK r27c
+        run: |
+          set -eu
+          ndk_zip="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_REVISION}.zip"
+          ndk_dir="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_REVISION}"
+          ndk_url="https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_REVISION}-linux.zip"
+
+          curl -fsSL "$ndk_url" -o "$ndk_zip"
+          unzip -q "$ndk_zip" -d "$RUNNER_TEMP"
+
+          test -d "$ndk_dir"
+          echo "ANDROID_NDK_ARCHIVE_URL=$ndk_url" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ARCHIVE_SIZE=$(wc -c < "$ndk_zip")" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ARCHIVE_SHA256=$(sha256sum "$ndk_zip" | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ndk_dir" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ndk_dir" >> "$GITHUB_ENV"
+          echo "CC_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
+          echo "CXX_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang++" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "$GITHUB_ENV"
+          echo "RANLIB_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
+
+      - name: Configure V8 Android artifact provenance
+        run: |
+          set -eu
+          _fetch_rusty_v8() {
+            local helper="$1"
+            local source_root_arg="$2"
+            local fetch_env="$RUNNER_TEMP/rusty-v8.env"
+            python3 "$helper" ${source_root_arg:+--source-root "$source_root_arg"} > "$fetch_env"
+
+            RUSTY_V8_ARCHIVE=""
+            RUSTY_V8_SRC_BINDING_PATH=""
+            while IFS='=' read -r key value; do
+              case "$key" in
+                export\ RUSTY_V8_ARCHIVE)
+                  RUSTY_V8_ARCHIVE=$value
+                  ;;
+                export\ RUSTY_V8_SRC_BINDING_PATH)
+                  RUSTY_V8_SRC_BINDING_PATH=$value
+                  ;;
+              esac
+            done < "$fetch_env"
+
+            test -n "$RUSTY_V8_ARCHIVE"
+            test -n "$RUSTY_V8_SRC_BINDING_PATH"
+            RUSTY_V8_ARCHIVE=${RUSTY_V8_ARCHIVE#\"}
+            RUSTY_V8_ARCHIVE=${RUSTY_V8_ARCHIVE%\"}
+            RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH#\"}
+            RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH%\"}
+            echo "RUSTY_V8_ARCHIVE=$RUSTY_V8_ARCHIVE" >> "$GITHUB_ENV"
+            echo "RUSTY_V8_SRC_BINDING_PATH=$RUSTY_V8_SRC_BINDING_PATH" >> "$GITHUB_ENV"
+            echo "RUSTY_V8_RELEASE_TAG=$(basename "$(dirname "$RUSTY_V8_ARCHIVE")")" >> "$GITHUB_ENV"
+          }
+
+          if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
+            # DioNanos fork: use in-source helper (reads fork's own manifest)
+            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" ""
+            echo "V8_ARTIFACT_MODE=helper-present" >> "$GITHUB_ENV"
+            echo "V8_ARTIFACT_SOURCE=source-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
+          else
+            if [ "${{ inputs.source_repository }}" = "DioNanos/codex-termux" ]; then
+              echo "fork helper missing unexpectedly" >&2
+              exit 1
+            fi
+            # openai/codex: use host-repo helper (reads private repo manifest)
+            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo"
+            echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
+            echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
+          fi
+
+      - name: Apply Android build patches (upstream openai/codex only)
+        if: inputs.source_repository == 'openai/codex'
+        run: |
+          set -eu
+          # Fix: tui/Cargo.toml includes cpal under cfg(not(target_os = "linux")),
+          # but Android target_os = "android", so oboe-sys gets pulled in and
+          # requires -lc++_static which is unavailable without the NDK on-device.
+          # Upstream bug: https://github.com/openai/codex/issues/24507
+          # Remove this patch once upstream fixes the cfg condition.
+          tui_cargo="source-repo/codex-rs/tui/Cargo.toml"
+          if grep -qF 'cfg(not(target_os = "linux"))' "$tui_cargo"; then
+            sed -i 's/cfg(not(target_os = "linux"))/cfg(not(any(target_os = "linux", target_os = "android")))/g' "$tui_cargo"
+            echo "Applied Android cpal/oboe-sys exclusion patch to tui/Cargo.toml"
+          else
+            echo "Patch not needed or already applied — skipping"
+          fi
+
+      - name: Build codex Android binaries
+        run: |
+          set -eu
+          cd source-repo/codex-rs
+          cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -p codex-cli -p codex-exec
+
+      - name: Assemble bundle and manifest
+        run: |
+          set -eu
+          rm -rf "$BUNDLE_DIR"
+          mkdir -p "$BUNDLE_DIR"
+
+          cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex" "$BUNDLE_DIR/codex"
+          cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-exec" "$BUNDLE_DIR/codex-exec"
+          cp "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$BUNDLE_DIR/libc++_shared.so"
+
+          SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
+          SOURCE_REPOSITORY_INPUT="${{ inputs.source_repository }}" \
+          SOURCE_REF_INPUT="${{ inputs.source_ref }}" \
+          SOURCE_SHA="$(git -C source-repo rev-parse HEAD)" \
+          HOST_REPOSITORY="$GITHUB_REPOSITORY" \
+          HOST_REF="${GITHUB_REF_NAME}" \
+          HOST_SHA="$(git -C host-repo rev-parse HEAD)" \
+          WORKFLOW_RUN_ID="$GITHUB_RUN_ID" \
+          WORKFLOW_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+          WORKFLOW_NAME="$GITHUB_WORKFLOW" \
+          BUILD_TIMESTAMP_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          RUST_VERSION="$RUST_VERSION" \
+          ANDROID_NDK_REVISION="$ANDROID_NDK_REVISION" \
+          ANDROID_NDK_ARCHIVE_URL="$ANDROID_NDK_ARCHIVE_URL" \
+          ANDROID_NDK_ARCHIVE_SIZE="$ANDROID_NDK_ARCHIVE_SIZE" \
+          ANDROID_NDK_ARCHIVE_SHA256="$ANDROID_NDK_ARCHIVE_SHA256" \
+          V8_ARTIFACT_MODE="$V8_ARTIFACT_MODE" \
+          V8_ARTIFACT_SOURCE="$V8_ARTIFACT_SOURCE" \
+          RUSTY_V8_RELEASE_TAG="$RUSTY_V8_RELEASE_TAG" \
+          bash host-repo/scripts/write-external-build-manifest.sh "$BUNDLE_DIR"
+
+      - name: Verify bundle contents
+        run: |
+          set -eu
+          find "$BUNDLE_DIR" -maxdepth 1 -type f -print | sort
+          test -f "$BUNDLE_DIR/codex"
+          test -f "$BUNDLE_DIR/codex-exec"
+          test -f "$BUNDLE_DIR/libc++_shared.so"
+          test -f "$BUNDLE_DIR/manifest.json"
+          test -f "$BUNDLE_DIR/sha256sums.txt"
+
+      - name: Upload artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-external-android-aarch64-${{ github.run_id }}
+          path: ${{ env.BUNDLE_DIR }}
+          if-no-files-found: error
