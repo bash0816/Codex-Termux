@@ -42,6 +42,7 @@ jobs:
   release:
     permissions:
       contents: write
+      pull-requests: write
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -236,14 +237,31 @@ jobs:
 
       - name: Commit and push manifest update
         if: steps.check_release.outputs.exists != 'true'
+        env:
+          BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
         run: |
           set -eu
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH_NAME"
           git add third_party/v8/android-artifacts.toml
           git diff --cached --quiet || \
             git commit -m "v8 ${V8_VERSION} Android artifact: self-built (${RELEASE_TAG})"
-          git push
+          git push -u origin "$BRANCH_NAME"
+
+      - name: Create PR for manifest update
+        if: steps.check_release.outputs.exists != 'true'
+        env:
+          BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "v8 ${V8_VERSION} Android artifact update" \
+            --body "Automated update for rusty_v8 Android artifacts.\n\n- version: ${V8_VERSION}\n- release tag: ${RELEASE_TAG}"
 
       - name: Upload build log
         if: always() && steps.check_release.outputs.exists != 'true'
