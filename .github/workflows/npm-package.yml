@@ -1,6 +1,6 @@
 name: npm package (verify)
 
-# Publish is handled by the private repo workflow (bash0816/Codex-Termux-Private).
+# Publish is disabled in this repository.
 # This workflow runs verify-only on PRs and pushes.
 
 on:
