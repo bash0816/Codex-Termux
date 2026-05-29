@@ -178,16 +178,16 @@ jobs:
           set -Eeuo pipefail
           cd "$BUILD_CRATE_DIR"
           cargo +"${RUST_VERSION}" fetch
+          # rusty_v8 の完全ソースから build/android/ を補完して、crate 側の不足を吸収する
+          RUSTY_V8_TAG="v0.${V8_VERSION}"
+          git clone --depth=1 --branch "$RUSTY_V8_TAG" \
+            https://github.com/denoland/rusty_v8.git "$RUNNER_TEMP/rusty_v8_src" 2>/dev/null || \
+          git clone --depth=1 https://github.com/denoland/rusty_v8.git "$RUNNER_TEMP/rusty_v8_src"
+
           v8_crate=$(find "$HOME/.cargo/registry/src" -maxdepth 2 -name "v8-${V8_VERSION}" -type d 2>/dev/null | head -1)
-          if [ -n "$v8_crate" ]; then
-            find "$v8_crate" -name "BUILD.gn" -exec grep -o '"[^"]*\.pydeps"' {} \; | \
-              tr -d '"' | sort -u | while read -r pydeps; do
-                full_path="$v8_crate/$pydeps"
-                mkdir -p "$(dirname "$full_path")"
-                touch "$full_path"
-                echo "Created: $full_path"
-              done
-            echo "All missing pydeps files created"
+          if [ -n "$v8_crate" ] && [ -d "$RUNNER_TEMP/rusty_v8_src/build/android" ]; then
+            cp -r "$RUNNER_TEMP/rusty_v8_src/build/android" "$v8_crate/build/"
+            echo "Copied build/android/ from rusty_v8 source to crate"
           fi
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
