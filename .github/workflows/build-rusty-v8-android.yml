@@ -42,6 +42,7 @@ jobs:
   release:
     permissions:
       contents: write
+      pull-requests: write
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -150,38 +151,31 @@ jobs:
 
       - name: Build librusty_v8 from source
         if: steps.check_release.outputs.exists != 'true'
+        shell: bash
         env:
           V8_FROM_SOURCE: "1"
           LIBCLANG_PATH: /usr/lib/llvm-14/lib
+          CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
+          RUST_BACKTRACE: '1'
+          PRINT_GN_ARGS: '1'
         run: |
-          set -eu
+          set -Eeuo pipefail
           cd "$BUILD_CRATE_DIR"
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
 
       - name: Locate and package artifacts
         if: steps.check_release.outputs.exists != 'true'
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
         run: |
-          set -eu
-          # Search broadly for the static archive (may be named without target suffix)
-          archive_file=$(find "$BUILD_CRATE_DIR" "$HOME/.cargo/registry" \
-            -name "librusty_v8_release_${ANDROID_TARGET}.a" \
-            -o -name "librusty_v8.a" 2>/dev/null | head -1)
-          if [ -z "$archive_file" ]; then
-            echo "ERROR: librusty_v8.a not found in build output" >&2
-            find "$BUILD_CRATE_DIR" -name "*.a" 2>/dev/null | head -20
-            exit 1
-          fi
+          set -Eeuo pipefail
+          archive_file="${CARGO_TARGET_DIR}/${ANDROID_TARGET}/release/gn_out/obj/librusty_v8.a"
+          binding_file="${CARGO_TARGET_DIR}/${ANDROID_TARGET}/release/gn_out/src_binding.rs"
+          test -f "$archive_file" || { echo 'ERROR: archive not found' >&2; find "$CARGO_TARGET_DIR" -name '*.a' 2>/dev/null | head -50; exit 1; }
+          test -f "$binding_file" || { echo 'ERROR: binding not found' >&2; exit 1; }
           echo "Found archive: $archive_file"
-
-          # Search for binding file
-          binding_file=$(find "$BUILD_CRATE_DIR" "$HOME/.cargo/registry" \
-            -name "src_binding_release_${ANDROID_TARGET}.rs" 2>/dev/null | head -1)
-          if [ -z "$binding_file" ]; then
-            echo "ERROR: src_binding_release_${ANDROID_TARGET}.rs not found" >&2
-            find "$BUILD_CRATE_DIR" -name "src_binding*.rs" 2>/dev/null | head -10
-            exit 1
-          fi
           echo "Found binding: $binding_file"
 
           artifacts_dir="$RUNNER_TEMP/rusty-v8-artifacts"
@@ -236,14 +230,40 @@ jobs:
 
       - name: Commit and push manifest update
         if: steps.check_release.outputs.exists != 'true'
+        env:
+          BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
         run: |
           set -eu
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH_NAME"
           git add third_party/v8/android-artifacts.toml
           git diff --cached --quiet || \
             git commit -m "v8 ${V8_VERSION} Android artifact: self-built (${RELEASE_TAG})"
-          git push
+          git push -u origin "$BRANCH_NAME"
+
+      - name: Create PR for manifest update
+        if: steps.check_release.outputs.exists != 'true'
+        env:
+          BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "v8 ${V8_VERSION} Android artifact update" \
+            --body "Automated update for rusty_v8 Android artifacts.\n\n- version: ${V8_VERSION}\n- release tag: ${RELEASE_TAG}"
+
+      - name: Dump v8 GN diagnostics
+        if: failure() && steps.check_release.outputs.exists != 'true'
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
+        run: |
+          find "$CARGO_TARGET_DIR" -path '*/gn_out/args.gn' -print -exec sed -n '1,50p' {} \; || true
+          find "$CARGO_TARGET_DIR" -path '*/gn_out/*.log' -print -exec sed -n '1,50p' {} \; || true
 
       - name: Upload build log
         if: always() && steps.check_release.outputs.exists != 'true'
