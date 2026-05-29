@@ -117,11 +117,13 @@ jobs:
         run: |
           set -eu
           gn_dir="$RUNNER_TEMP/gn-src"
-          git clone --depth=1 https://gn.googlesource.com/gn "$gn_dir"
+          git clone https://gn.googlesource.com/gn "$gn_dir"
           cd "$gn_dir"
+          git checkout 3357c4f51b1a9e676378c695dd9c7e9911c35ee6
           python3 build/gen.py
           ninja -C out
           test -x "$gn_dir/out/gn"
+          echo "GN commit: $(git rev-parse HEAD)"
           "$gn_dir/out/gn" --version
           echo "GN=$gn_dir/out/gn" >> "$GITHUB_ENV"
           echo "NINJA=$(command -v ninja)" >> "$GITHUB_ENV"
