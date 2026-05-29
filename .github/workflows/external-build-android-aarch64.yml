@@ -3,6 +3,11 @@ name: external-build-android-aarch64
 on:
   workflow_dispatch:
     inputs:
+      rust_version:
+        description: Rust toolchain version. Leave empty to detect from source-repo/codex-rs/rust-toolchain.toml
+        required: false
+        default: ""
+        type: string
       source_repository:
         description: Source repository to build
         required: true
@@ -21,7 +26,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     env:
-      RUST_VERSION: "1.93.0"
+      RUST_VERSION: ${{ inputs.rust_version }}
       ANDROID_NDK_REVISION: "r27c"
       ANDROID_TARGET: aarch64-linux-android
       ANDROID_API_LEVEL: "29"
@@ -83,6 +88,15 @@ jobs:
           python3 --version
           python3 -c "import tomllib"
 
+      - name: Detect Rust version from source-repo/codex-rs/rust-toolchain.toml
+        if: env.RUST_VERSION == ''
+        run: |
+          set -eu
+          rust_version="$(python3 -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("source-repo/codex-rs/rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]["channel"])')"
+          test -n "$rust_version"
+          echo "RUST_VERSION=$rust_version" >> "$GITHUB_ENV"
+          echo "Detected RUST_VERSION=$rust_version from source-repo/codex-rs/rust-toolchain.toml"
+
       - name: Verify upstream workspace version when needed
         if: inputs.source_repository == 'openai/codex'
         env:
@@ -102,7 +116,7 @@ jobs:
           print(f"workspace.package.version={version}")
           PY
 
-      - name: Install Rust 1.93.0
+      - name: Install Rust
         run: |
           set -eu
           rustup toolchain install "${RUST_VERSION}" --profile minimal
