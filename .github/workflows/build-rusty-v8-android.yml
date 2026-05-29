@@ -198,6 +198,19 @@ jobs:
             echo "ERROR: v8_crate=$v8_crate, android dir exists=$(test -d $build_dir/android && echo yes || echo no)" >&2
             exit 1
           fi
+          # Also copy build/linux for host sysroot (required by sysroot.gni for clang_x64_for_rust_host_build_tools)
+          git -C "$build_dir" checkout FETCH_HEAD -- linux
+          if [ -d "$build_dir/linux" ]; then
+            cp -r "$build_dir/linux" "$v8_crate/build/"
+            echo "Copied build/linux/ from chromium_build to crate"
+          fi
+          # Install host amd64 sysroot required by sysroot.gni assertion
+          if [ -f "$v8_crate/build/linux/sysroot_scripts/install-sysroot.py" ]; then
+            cd "$v8_crate"
+            python3 build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
+            cd "$BUILD_CRATE_DIR"
+            echo "Host amd64 sysroot installed"
+          fi
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
 
