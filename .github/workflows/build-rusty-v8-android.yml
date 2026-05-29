@@ -211,6 +211,19 @@ jobs:
             cd "$BUILD_CRATE_DIR"
             echo "Host amd64 sysroot installed"
           fi
+          # Fetch third_party/rust (host Rust build tools) via sparse checkout
+          # commit 2b055f4ecac78bbf34a0d34217c699b7b09b44dd = third_party/rust for v8-147.4.0
+          rust_dir="$RUNNER_TEMP/chromium-rust"
+          mkdir -p "$rust_dir"
+          git init -q "$rust_dir"
+          git -C "$rust_dir" remote add origin https://chromium.googlesource.com/chromium/src/third_party/rust
+          git -C "$rust_dir" config core.sparseCheckout true
+          printf 'chromium_crates_io/\n' > "$rust_dir/.git/info/sparse-checkout"
+          git -C "$rust_dir" fetch --depth=1 --filter=blob:none origin 2b055f4ecac78bbf34a0d34217c699b7b09b44dd
+          git -C "$rust_dir" checkout FETCH_HEAD
+          mkdir -p "$v8_crate/third_party/rust"
+          cp -r "$rust_dir/chromium_crates_io" "$v8_crate/third_party/rust/"
+          echo "Copied third_party/rust/chromium_crates_io/ to crate ($(du -sh "$v8_crate/third_party/rust/chromium_crates_io" | cut -f1))"
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
 
