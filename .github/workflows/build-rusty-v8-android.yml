@@ -165,19 +165,6 @@ jobs:
           printf 'fn main() {}\n' > "$build_dir/src/main.rs"
           echo "BUILD_CRATE_DIR=$build_dir" >> "$GITHUB_ENV"
 
-      - name: Fix missing v8 Android pydeps file
-        if: steps.check_release.outputs.exists != 'true'
-        run: |
-          set -eu
-          v8_crate=$(find "$HOME/.cargo/registry/src" -maxdepth 2 -name "v8-${V8_VERSION}" -type d 2>/dev/null | head -1)
-          if [ -n "$v8_crate" ]; then
-            mkdir -p "$v8_crate/build/android/pylib/results/presentation"
-            touch "$v8_crate/build/android/pylib/results/presentation/test_results_presentation.pydeps"
-            echo "Created missing pydeps file in: $v8_crate"
-          else
-            echo "v8 crate not yet in registry, will be handled after download"
-          fi
-
       - name: Build librusty_v8 from source
         if: steps.check_release.outputs.exists != 'true'
         shell: bash
@@ -190,6 +177,13 @@ jobs:
         run: |
           set -Eeuo pipefail
           cd "$BUILD_CRATE_DIR"
+          cargo +"${RUST_VERSION}" fetch
+          v8_crate=$(find "$HOME/.cargo/registry/src" -maxdepth 2 -name "v8-${V8_VERSION}" -type d 2>/dev/null | head -1)
+          if [ -n "$v8_crate" ]; then
+            mkdir -p "$v8_crate/build/android/pylib/results/presentation"
+            touch "$v8_crate/build/android/pylib/results/presentation/test_results_presentation.pydeps"
+            echo "Created missing pydeps file in: $v8_crate"
+          fi
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
 
