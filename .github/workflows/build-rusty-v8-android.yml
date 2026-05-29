@@ -217,9 +217,9 @@ jobs:
           mkdir -p "$rust_dir"
           git init -q "$rust_dir"
           git -C "$rust_dir" remote add origin https://chromium.googlesource.com/chromium/src/third_party/rust
-          git -C "$rust_dir" config core.sparseCheckout true
-          printf 'chromium_crates_io/\n' > "$rust_dir/.git/info/sparse-checkout"
-          git -C "$rust_dir" fetch --depth=1 --filter=blob:none origin 2b055f4ecac78bbf34a0d34217c699b7b09b44dd
+          git -C "$rust_dir" sparse-checkout init --cone
+          git -C "$rust_dir" sparse-checkout set chromium_crates_io
+          git -C "$rust_dir" fetch --depth=1 origin 2b055f4ecac78bbf34a0d34217c699b7b09b44dd
           git -C "$rust_dir" checkout FETCH_HEAD
           mkdir -p "$v8_crate/third_party/rust"
           cp -r "$rust_dir/chromium_crates_io" "$v8_crate/third_party/rust/"
