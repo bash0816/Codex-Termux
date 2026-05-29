@@ -112,10 +112,22 @@ jobs:
             libclang-dev clang-14 ninja-build python3 \
             pkg-config libglib2.0-dev curl ca-certificates git
 
+      - name: Install clang-18 for GN build
+        if: steps.check_release.outputs.exists != 'true'
+        run: |
+          set -eu
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 18
+          sudo apt-get install -y --no-install-recommends lld-18
+          clang++-18 --version
+
       - name: Build and pin GN from source
         if: steps.check_release.outputs.exists != 'true'
         run: |
           set -eu
+          export CC=clang-18
+          export CXX=clang++-18
           gn_dir="$RUNNER_TEMP/gn-src"
           git clone https://gn.googlesource.com/gn "$gn_dir"
           cd "$gn_dir"
