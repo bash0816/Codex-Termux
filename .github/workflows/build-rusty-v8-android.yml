@@ -112,6 +112,20 @@ jobs:
             libclang-dev clang-14 ninja-build python3 \
             pkg-config libglib2.0-dev curl ca-certificates git
 
+      - name: Build and pin GN from source
+        if: steps.check_release.outputs.exists != 'true'
+        run: |
+          set -eu
+          gn_dir="$RUNNER_TEMP/gn-src"
+          git clone --depth=1 https://gn.googlesource.com/gn "$gn_dir"
+          cd "$gn_dir"
+          python3 build/gen.py
+          ninja -C out
+          test -x "$gn_dir/out/gn"
+          "$gn_dir/out/gn" --version
+          echo "GN=$gn_dir/out/gn" >> "$GITHUB_ENV"
+          echo "NINJA=$(command -v ninja)" >> "$GITHUB_ENV"
+
       - name: Install Rust
         if: steps.check_release.outputs.exists != 'true'
         run: |
