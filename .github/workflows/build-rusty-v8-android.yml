@@ -180,9 +180,14 @@ jobs:
           cargo +"${RUST_VERSION}" fetch
           v8_crate=$(find "$HOME/.cargo/registry/src" -maxdepth 2 -name "v8-${V8_VERSION}" -type d 2>/dev/null | head -1)
           if [ -n "$v8_crate" ]; then
-            mkdir -p "$v8_crate/build/android/pylib/results/presentation"
-            touch "$v8_crate/build/android/pylib/results/presentation/test_results_presentation.pydeps"
-            echo "Created missing pydeps file in: $v8_crate"
+            find "$v8_crate" -name "BUILD.gn" -exec grep -o '"[^"]*\.pydeps"' {} \; | \
+              tr -d '"' | sort -u | while read -r pydeps; do
+                full_path="$v8_crate/$pydeps"
+                mkdir -p "$(dirname "$full_path")"
+                touch "$full_path"
+                echo "Created: $full_path"
+              done
+            echo "All missing pydeps files created"
           fi
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
