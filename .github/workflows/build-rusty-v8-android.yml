@@ -198,16 +198,8 @@ jobs:
           # Build using rusty_v8 source via [patch.crates-io]
           build_dir="$RUNNER_TEMP/v8-build-crate"
           mkdir -p "$build_dir/src"
-          cat > "$build_dir/Cargo.toml" << 'TOML_EOF'
-[package]
-name = "v8-android-build"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-TOML_EOF
-          printf 'v8 = "=%s"\n\n[patch.crates-io]\nv8 = { path = "%s" }\n' \
-            "${V8_VERSION}" "$RV8_SRC" >> "$build_dir/Cargo.toml"
+          printf '[package]\nname = "v8-android-build"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nv8 = "=%s"\n\n[patch.crates-io]\nv8 = { path = "%s" }\n' \
+            "${V8_VERSION}" "$RV8_SRC" > "$build_dir/Cargo.toml"
           printf 'fn main() {}\n' > "$build_dir/src/main.rs"
 
           cd "$build_dir"
