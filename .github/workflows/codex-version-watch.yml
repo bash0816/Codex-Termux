@@ -43,9 +43,11 @@ jobs:
           latest_audited=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_audited_version")
           latest_candidate=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_candidate_version || ''")
           candidate_state=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).candidate_state_status || ''")
-          echo "latest_audited=$latest_audited" >> "$GITHUB_OUTPUT"
-          echo "latest_candidate=$latest_candidate" >> "$GITHUB_OUTPUT"
-          echo "candidate_state=$candidate_state" >> "$GITHUB_OUTPUT"
+          {
+            echo "latest_audited=$latest_audited"
+            echo "latest_candidate=$latest_candidate"
+            echo "candidate_state=$candidate_state"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Determine processing mode
         id: mode

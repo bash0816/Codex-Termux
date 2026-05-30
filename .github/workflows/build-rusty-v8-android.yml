@@ -146,13 +146,15 @@ jobs:
           unzip -q "$ndk_zip" -d "$RUNNER_TEMP"
           test -d "$ndk_dir"
           toolchain="$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          echo "ANDROID_NDK_HOME=$ndk_dir" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ndk_dir" >> "$GITHUB_ENV"
-          echo "CC_aarch64_linux_android=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
-          echo "CXX_aarch64_linux_android=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang++" >> "$GITHUB_ENV"
-          echo "AR_aarch64_linux_android=$toolchain/llvm-ar" >> "$GITHUB_ENV"
-          echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib" >> "$GITHUB_ENV"
-          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
+          {
+            echo "ANDROID_NDK_HOME=$ndk_dir"
+            echo "ANDROID_NDK_ROOT=$ndk_dir"
+            echo "CC_aarch64_linux_android=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+            echo "CXX_aarch64_linux_android=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang++"
+            echo "AR_aarch64_linux_android=$toolchain/llvm-ar"
+            echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+          } >> "$GITHUB_ENV"
 
       - name: Create minimal v8 build crate
         if: steps.check_release.outputs.exists != 'true'
@@ -244,9 +246,11 @@ jobs:
           archive_sha=$(sha256sum "$artifacts_dir/librusty_v8_release_${ANDROID_TARGET}.a.gz" | awk '{print $1}')
           binding_sha=$(sha256sum "$artifacts_dir/src_binding_release_${ANDROID_TARGET}.rs" | awk '{print $1}')
 
-          echo "ARTIFACTS_DIR=$artifacts_dir" >> "$GITHUB_ENV"
-          echo "ARCHIVE_SHA256=$archive_sha" >> "$GITHUB_ENV"
-          echo "BINDING_SHA256=$binding_sha" >> "$GITHUB_ENV"
+          {
+            echo "ARTIFACTS_DIR=$artifacts_dir"
+            echo "ARCHIVE_SHA256=$archive_sha"
+            echo "BINDING_SHA256=$binding_sha"
+          } >> "$GITHUB_ENV"
 
           echo "archive sha256: $archive_sha"
           echo "binding sha256: $binding_sha"
