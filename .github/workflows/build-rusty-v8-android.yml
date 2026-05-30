@@ -262,9 +262,12 @@ jobs:
         run: |
           set -eu
           notes_file="$RUNNER_TEMP/release-notes.md"
-          printf 'Self-built rusty_v8 for aarch64-linux-android.\n\nv8==%s, NDK %s, Rust %s\n\n- `librusty_v8_release_aarch64-linux-android.a.gz` sha256: `%s`\n- `src_binding_release_aarch64-linux-android.rs` sha256: `%s`\n' \
-            "${V8_VERSION}" "${NDK_REVISION}" "${RUST_VERSION}" \
-            "${ARCHIVE_SHA256}" "${BINDING_SHA256}" > "$notes_file"
+          {
+            printf "Self-built rusty_v8 for aarch64-linux-android.\n\nv8==%s, NDK %s, Rust %s\n\n" \
+              "${V8_VERSION}" "${NDK_REVISION}" "${RUST_VERSION}"
+            printf -- "- \`librusty_v8_release_aarch64-linux-android.a.gz\` sha256: \`%s\`\n" "${ARCHIVE_SHA256}"
+            printf -- "- \`src_binding_release_aarch64-linux-android.rs\` sha256: \`%s\`\n" "${BINDING_SHA256}"
+          } > "$notes_file"
           gh release create "${RELEASE_TAG}" \
             --repo "$GITHUB_REPOSITORY" \
             --title "rusty_v8 ${RELEASE_TAG} aarch64-linux-android" \
