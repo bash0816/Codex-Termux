@@ -194,6 +194,7 @@ jobs:
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libc++abi/src
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/jinja2
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/markupsafe
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/abseil-cpp
           # Clone v8 submodule fully (gni/ and other source files required by GN)
           git -C "$RV8_SRC" submodule update --init --depth=1 v8
           echo "v8 SHA: $(git -C "$RV8_SRC" submodule status v8 | awk '{print $1}')"
