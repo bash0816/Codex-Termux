@@ -51,7 +51,7 @@ jobs:
         run: echo "already on latest upstream version"
 
       - name: Stop when pending candidate already exists
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate != steps.manifest.outputs.latest_audited
+        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate != steps.manifest.outputs.latest_audited && steps.manifest.outputs.candidate_state != 'v8_build_dispatched'
         run: |
           echo "pending candidate exists: ${{ steps.manifest.outputs.latest_candidate }} state=${{ steps.manifest.outputs.candidate_state }}"
           exit 0
@@ -62,7 +62,7 @@ jobs:
         run: |
           set -eu
           version="${{ steps.latest.outputs.version }}"
-          cargo_lock_url="https://raw.githubusercontent.com/openai/codex/v${version}/Cargo.lock"
+          cargo_lock_url="https://raw.githubusercontent.com/openai/codex/rust-v${version}/Cargo.lock"
           v8_version=$(curl -fsSL "$cargo_lock_url" | awk '/^name = "v8"$/{found=1} found && /^version = /{gsub(/[" ]/, ""); sub("version=", ""); print; exit}')
           if [ -z "$v8_version" ]; then
             echo "ERROR: cannot resolve v8 version from Cargo.lock" >&2
@@ -134,7 +134,7 @@ jobs:
           gh workflow run external-build-android-aarch64.yml \
             --repo bash0816/Codex-Termux \
             -f source_repository=openai/codex \
-            -f source_ref="v${CANDIDATE_VERSION}"
+            -f source_ref="rust-v${CANDIDATE_VERSION}"
 
       - name: Create or reuse candidate PR
         if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
