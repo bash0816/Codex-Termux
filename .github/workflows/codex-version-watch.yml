@@ -133,8 +133,8 @@ jobs:
           [ -n "${GH_TOKEN:-}" ] || { echo "missing GITHUB_TOKEN" >&2; exit 1; }
           gh workflow run external-build-android-aarch64.yml \
             --repo bash0816/Codex-Termux \
-            -f source_repository=bash0816/Codex-Termux \
-            -f source_ref="openai/codex@v${CANDIDATE_VERSION}"
+            -f source_repository=openai/codex \
+            -f source_ref="v${CANDIDATE_VERSION}"
 
       - name: Create or reuse candidate PR
         if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
