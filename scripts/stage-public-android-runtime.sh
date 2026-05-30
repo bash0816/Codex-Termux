@@ -16,7 +16,9 @@ ARTIFACT_DIR=
 SOURCE_REPOSITORY=
 SOURCE_REF=
 SOURCE_SHA=
+# shellcheck disable=SC1007
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck disable=SC1007
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 PACKAGE_ROOT="$REPO_ROOT/packages/codex-termux"
 
