@@ -62,7 +62,7 @@ jobs:
         run: |
           set -eu
           version="${{ steps.latest.outputs.version }}"
-          cargo_lock_url="https://raw.githubusercontent.com/openai/codex/rust-v${version}/Cargo.lock"
+          cargo_lock_url="https://raw.githubusercontent.com/openai/codex/rust-v${version}/codex-rs/Cargo.lock"
           v8_version=$(curl -fsSL "$cargo_lock_url" | awk '/^name = "v8"$/{found=1} found && /^version = /{gsub(/[" ]/, ""); sub("version=", ""); print; exit}')
           if [ -z "$v8_version" ]; then
             echo "ERROR: cannot resolve v8 version from Cargo.lock" >&2
