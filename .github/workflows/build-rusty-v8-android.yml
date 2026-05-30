@@ -185,6 +185,15 @@ jobs:
           # Init build and third_party/rust submodules (v8/ is downloaded by build.rs)
           git -C "$RV8_SRC" submodule update --init --depth=1 build
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/rust
+          # Fetch v8/DEPS only (needed by tools/v8_deps.py → tools/rust_toolchain.py)
+          V8_SHA=$(git -C "$RV8_SRC" ls-tree HEAD v8 | awk '{print $3}')
+          V8_URL=$(git -C "$RV8_SRC" config --file .gitmodules submodule.v8.url)
+          mkdir -p "$RV8_SRC/v8"
+          git init -q "$RV8_SRC/v8"
+          git -C "$RV8_SRC/v8" remote add origin "$V8_URL"
+          git -C "$RV8_SRC/v8" fetch --depth=1 origin "$V8_SHA"
+          git -C "$RV8_SRC/v8" checkout FETCH_HEAD -- DEPS
+          echo "v8/DEPS fetched ($(wc -l < "$RV8_SRC/v8/DEPS") lines)"
           echo "rusty_v8 source ready: $(du -sh "$RV8_SRC" | cut -f1)"
 
           # Install host amd64 sysroot (required by sysroot.gni)
