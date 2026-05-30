@@ -186,6 +186,12 @@ jobs:
           git -C "$RV8_SRC" submodule update --init --depth=1 build
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/rust
           git -C "$RV8_SRC" submodule update --init --depth=1 tools/clang
+          git -C "$RV8_SRC" submodule update --init --depth=1 buildtools
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/icu
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libc++/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libc++abi/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/jinja2
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/markupsafe
           # Fetch v8/DEPS only (needed by tools/v8_deps.py → tools/rust_toolchain.py)
           V8_SHA=$(git -C "$RV8_SRC" ls-tree HEAD v8 | awk '{print $3}')
           V8_URL=$(git -C "$RV8_SRC" config --file .gitmodules submodule.v8.url)
