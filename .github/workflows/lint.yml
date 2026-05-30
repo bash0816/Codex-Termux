@@ -42,4 +42,4 @@ jobs:
       - name: Run shellcheck on shell scripts
         run: |
           set -eu
-          find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --severity=warning || true
+          find . -name "*.sh" -not -path "./.git/*" | xargs -r shellcheck --severity=warning
