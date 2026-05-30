@@ -134,16 +134,18 @@ jobs:
           unzip -q "$ndk_zip" -d "$RUNNER_TEMP"
 
           test -d "$ndk_dir"
-          echo "ANDROID_NDK_ARCHIVE_URL=$ndk_url" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ARCHIVE_SIZE=$(wc -c < "$ndk_zip")" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ARCHIVE_SHA256=$(sha256sum "$ndk_zip" | awk '{print $1}')" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$ndk_dir" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ndk_dir" >> "$GITHUB_ENV"
-          echo "CC_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
-          echo "CXX_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang++" >> "$GITHUB_ENV"
-          echo "AR_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "$GITHUB_ENV"
-          echo "RANLIB_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> "$GITHUB_ENV"
-          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang" >> "$GITHUB_ENV"
+          {
+            echo "ANDROID_NDK_ARCHIVE_URL=$ndk_url"
+            echo "ANDROID_NDK_ARCHIVE_SIZE=$(wc -c < "$ndk_zip")"
+            echo "ANDROID_NDK_ARCHIVE_SHA256=$(sha256sum "$ndk_zip" | awk '{print $1}')"
+            echo "ANDROID_NDK_HOME=$ndk_dir"
+            echo "ANDROID_NDK_ROOT=$ndk_dir"
+            echo "CC_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+            echo "CXX_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang++"
+            echo "AR_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            echo "RANLIB_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+          } >> "$GITHUB_ENV"
 
       - name: Configure V8 Android artifact provenance
         run: |
@@ -173,9 +175,11 @@ jobs:
             RUSTY_V8_ARCHIVE=${RUSTY_V8_ARCHIVE%\"}
             RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH#\"}
             RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH%\"}
-            echo "RUSTY_V8_ARCHIVE=$RUSTY_V8_ARCHIVE" >> "$GITHUB_ENV"
-            echo "RUSTY_V8_SRC_BINDING_PATH=$RUSTY_V8_SRC_BINDING_PATH" >> "$GITHUB_ENV"
-            echo "RUSTY_V8_RELEASE_TAG=$(basename "$(dirname "$RUSTY_V8_ARCHIVE")")" >> "$GITHUB_ENV"
+            {
+              echo "RUSTY_V8_ARCHIVE=$RUSTY_V8_ARCHIVE"
+              echo "RUSTY_V8_SRC_BINDING_PATH=$RUSTY_V8_SRC_BINDING_PATH"
+              echo "RUSTY_V8_RELEASE_TAG=$(basename "$(dirname "$RUSTY_V8_ARCHIVE")")"
+            } >> "$GITHUB_ENV"
           }
 
           if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
