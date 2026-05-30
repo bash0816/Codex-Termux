@@ -194,15 +194,11 @@ jobs:
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libc++abi/src
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/jinja2
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/markupsafe
-          # Fetch v8/DEPS only (needed by tools/v8_deps.py → tools/rust_toolchain.py)
-          V8_SHA=$(git -C "$RV8_SRC" ls-tree HEAD v8 | awk '{print $3}')
-          V8_URL=$(git -C "$RV8_SRC" config --file .gitmodules submodule.v8.url)
-          mkdir -p "$RV8_SRC/v8"
-          git init -q "$RV8_SRC/v8"
-          git -C "$RV8_SRC/v8" remote add origin "$V8_URL"
-          git -C "$RV8_SRC/v8" fetch --depth=1 origin "$V8_SHA"
-          git -C "$RV8_SRC/v8" checkout FETCH_HEAD -- DEPS
-          echo "v8/DEPS fetched ($(wc -l < "$RV8_SRC/v8/DEPS") lines)"
+          # Clone v8 submodule fully (gni/ and other source files required by GN)
+          git -C "$RV8_SRC" submodule update --init --depth=1 v8
+          echo "v8 SHA: $(git -C "$RV8_SRC" submodule status v8 | awk '{print $1}')"
+          test -f "$RV8_SRC/v8/gni/v8.gni" || { echo "ERROR: v8/gni/v8.gni missing" >&2; exit 1; }
+          test -f "$RV8_SRC/v8/DEPS"        || { echo "ERROR: v8/DEPS missing" >&2; exit 1; }
           echo "rusty_v8 source ready: $(du -sh "$RV8_SRC" | cut -f1)"
 
           # Install host amd64 sysroot (required by sysroot.gni)
