@@ -46,19 +46,31 @@ jobs:
           echo "latest_candidate=$latest_candidate" >> "$GITHUB_OUTPUT"
           echo "candidate_state=$candidate_state" >> "$GITHUB_OUTPUT"
 
-      - name: Stop when no newer version exists
-        if: steps.latest.outputs.version == steps.manifest.outputs.latest_audited
-        run: echo "already on latest upstream version"
-
-      - name: Stop when pending candidate already exists
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate != steps.manifest.outputs.latest_audited && steps.manifest.outputs.candidate_state != 'v8_build_dispatched'
+      - name: Determine processing mode
+        id: mode
         run: |
-          echo "pending candidate exists: ${{ steps.manifest.outputs.latest_candidate }} state=${{ steps.manifest.outputs.candidate_state }}"
-          exit 0
+          set -eu
+          latest="${{ steps.latest.outputs.version }}"
+          latest_audited="${{ steps.manifest.outputs.latest_audited }}"
+          latest_candidate="${{ steps.manifest.outputs.latest_candidate }}"
+          candidate_state="${{ steps.manifest.outputs.candidate_state }}"
+          if [ "$latest" = "$latest_audited" ]; then
+            echo "mode=skip_uptodate" >> "$GITHUB_OUTPUT"
+            echo "Already on latest audited: $latest"
+          elif [ "$latest_candidate" = "$latest_audited" ]; then
+            echo "mode=new_intake" >> "$GITHUB_OUTPUT"
+            echo "New intake: $latest"
+          elif [ "$latest_candidate" = "$latest" ] && [ "$candidate_state" = "v8_build_dispatched" ]; then
+            echo "mode=v8_resume" >> "$GITHUB_OUTPUT"
+            echo "Resuming v8_build_dispatched for: $latest"
+          else
+            echo "mode=skip_pending" >> "$GITHUB_OUTPUT"
+            echo "Pending candidate exists: $latest_candidate state=$candidate_state"
+          fi
 
       - name: Resolve v8 version from Cargo.lock
         id: v8_ver
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume'
         run: |
           set -eu
           version="${{ steps.latest.outputs.version }}"
@@ -73,7 +85,7 @@ jobs:
 
       - name: Check v8 build asset
         id: v8_asset
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -90,7 +102,7 @@ jobs:
           fi
 
       - name: Dispatch v8 build
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.v8_asset.outputs.exists == 'false'
+        if: (steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume') && steps.v8_asset.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -103,7 +115,7 @@ jobs:
           echo "v8 build dispatched. Will proceed with codex build after v8 is ready."
 
       - name: Create automation branch and update manifest
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume'
         env:
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
           V8_ASSET_EXISTS: ${{ steps.v8_asset.outputs.exists }}
@@ -124,7 +136,7 @@ jobs:
           git push --force-with-lease origin "$branch"
           echo "branch=$branch" >> "$GITHUB_ENV"
       - name: Dispatch public external build
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited && steps.v8_asset.outputs.exists == 'true'
+        if: (steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume') && steps.v8_asset.outputs.exists == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
@@ -137,7 +149,7 @@ jobs:
             -f source_ref="rust-v${CANDIDATE_VERSION}"
 
       - name: Create or reuse candidate PR
-        if: steps.latest.outputs.version != steps.manifest.outputs.latest_audited && steps.manifest.outputs.latest_candidate == steps.manifest.outputs.latest_audited
+        if: steps.mode.outputs.mode == 'new_intake' || steps.mode.outputs.mode == 'v8_resume'
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_VERSION: ${{ steps.latest.outputs.version }}
