@@ -182,9 +182,10 @@ jobs:
           RV8_SRC="$RUNNER_TEMP/rusty_v8_src"
           git clone --depth=1 --branch "v${V8_VERSION}" \
             https://github.com/denoland/rusty_v8.git "$RV8_SRC"
-          # Init build and third_party/rust submodules (v8/ is downloaded by build.rs)
+          # Init required submodules (v8/ is downloaded by build.rs)
           git -C "$RV8_SRC" submodule update --init --depth=1 build
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/rust
+          git -C "$RV8_SRC" submodule update --init --depth=1 tools/clang
           # Fetch v8/DEPS only (needed by tools/v8_deps.py → tools/rust_toolchain.py)
           V8_SHA=$(git -C "$RV8_SRC" ls-tree HEAD v8 | awk '{print $3}')
           V8_URL=$(git -C "$RV8_SRC" config --file .gitmodules submodule.v8.url)
