@@ -176,54 +176,41 @@ jobs:
           PRINT_GN_ARGS: '1'
         run: |
           set -Eeuo pipefail
-          cd "$BUILD_CRATE_DIR"
-          cargo +"${RUST_VERSION}" fetch
-          # Fetch build/android from denoland chromium_build mirror at exact commit for v8-${V8_VERSION}
-          # Commit 996da150580c40ac4626107c357767acc40d27c6 = build submodule for v8 147.4.0
-          BUILD_ANDROID_COMMIT="996da150580c40ac4626107c357767acc40d27c6"
-          build_dir="$RUNNER_TEMP/chromium-build"
-          mkdir -p "$build_dir"
-          git init -q "$build_dir"
-          git -C "$build_dir" remote add origin https://github.com/denoland/chromium_build.git
-          git -C "$build_dir" fetch --depth=1 origin "$BUILD_ANDROID_COMMIT"
-          git -C "$build_dir" checkout FETCH_HEAD -- android
-          echo "chromium build commit: $BUILD_ANDROID_COMMIT"
-          ls "$build_dir/android/" | head -5
 
-          v8_crate=$(find "$HOME/.cargo/registry/src" -maxdepth 2 -name "v8-${V8_VERSION}" -type d 2>/dev/null | head -1)
-          if [ -n "$v8_crate" ] && [ -d "$build_dir/android" ]; then
-            cp -r "$build_dir/android" "$v8_crate/build/"
-            echo "Copied build/android/ from chromium_build to crate: $v8_crate"
-          else
-            echo "ERROR: v8_crate=$v8_crate, android dir exists=$(test -d $build_dir/android && echo yes || echo no)" >&2
-            exit 1
-          fi
-          # Also copy build/linux for host sysroot (required by sysroot.gni for clang_x64_for_rust_host_build_tools)
-          git -C "$build_dir" checkout FETCH_HEAD -- linux
-          if [ -d "$build_dir/linux" ]; then
-            cp -r "$build_dir/linux" "$v8_crate/build/"
-            echo "Copied build/linux/ from chromium_build to crate"
-          fi
-          # Install host amd64 sysroot required by sysroot.gni assertion
-          if [ -f "$v8_crate/build/linux/sysroot_scripts/install-sysroot.py" ]; then
-            cd "$v8_crate"
+          # Plan B: clone rusty_v8 source with required submodules
+          # (crate tarball is incomplete - missing build/android, third_party/rust, etc.)
+          RV8_SRC="$RUNNER_TEMP/rusty_v8_src"
+          git clone --depth=1 --branch "v${V8_VERSION}" \
+            https://github.com/denoland/rusty_v8.git "$RV8_SRC"
+          # Init build and third_party/rust submodules (v8/ is downloaded by build.rs)
+          git -C "$RV8_SRC" submodule update --init --depth=1 build
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/rust
+          echo "rusty_v8 source ready: $(du -sh "$RV8_SRC" | cut -f1)"
+
+          # Install host amd64 sysroot (required by sysroot.gni)
+          if [ -f "$RV8_SRC/build/linux/sysroot_scripts/install-sysroot.py" ]; then
+            cd "$RV8_SRC"
             python3 build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
-            cd "$BUILD_CRATE_DIR"
+            cd "$RUNNER_TEMP"
             echo "Host amd64 sysroot installed"
           fi
-          # Fetch third_party/rust (host Rust build tools) via sparse checkout
-          # commit 2b055f4ecac78bbf34a0d34217c699b7b09b44dd = third_party/rust for v8-147.4.0
-          rust_dir="$RUNNER_TEMP/chromium-rust"
-          mkdir -p "$rust_dir"
-          git init -q "$rust_dir"
-          git -C "$rust_dir" remote add origin https://chromium.googlesource.com/chromium/src/third_party/rust
-          git -C "$rust_dir" sparse-checkout init --cone
-          git -C "$rust_dir" sparse-checkout set chromium_crates_io
-          git -C "$rust_dir" fetch --depth=1 origin 2b055f4ecac78bbf34a0d34217c699b7b09b44dd
-          git -C "$rust_dir" checkout FETCH_HEAD
-          mkdir -p "$v8_crate/third_party/rust"
-          cp -r "$rust_dir/chromium_crates_io" "$v8_crate/third_party/rust/"
-          echo "Copied third_party/rust/chromium_crates_io/ to crate ($(du -sh "$v8_crate/third_party/rust/chromium_crates_io" | cut -f1))"
+
+          # Build using rusty_v8 source via [patch.crates-io]
+          build_dir="$RUNNER_TEMP/v8-build-crate"
+          mkdir -p "$build_dir/src"
+          cat > "$build_dir/Cargo.toml" << 'TOML_EOF'
+[package]
+name = "v8-android-build"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+TOML_EOF
+          printf 'v8 = "=%s"\n\n[patch.crates-io]\nv8 = { path = "%s" }\n' \
+            "${V8_VERSION}" "$RV8_SRC" >> "$build_dir/Cargo.toml"
+          printf 'fn main() {}\n' > "$build_dir/src/main.rs"
+
+          cd "$build_dir"
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
 
