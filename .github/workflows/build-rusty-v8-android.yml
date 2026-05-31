@@ -109,7 +109,7 @@ jobs:
           set -eu
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            libclang-dev clang-14 ninja-build python3 \
+            libclang-19-dev clang-19 ninja-build python3 \
             pkg-config libglib2.0-dev curl ca-certificates git
 
       - name: Download prebuilt GN
@@ -155,6 +155,8 @@ jobs:
             echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib"
             echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
             echo "EXTRA_GN_ARGS=android_ndk_root=\"$ndk_dir\" android_ndk_api_level=${ANDROID_API_LEVEL}"
+            sysroot="$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+            echo "BINDGEN_EXTRA_CLANG_ARGS=--target=aarch64-linux-android${ANDROID_API_LEVEL} --sysroot=$sysroot -I$sysroot/usr/include -I$sysroot/usr/include/aarch64-linux-android"
           } >> "$GITHUB_ENV"
 
       - name: Create minimal v8 build crate
@@ -173,7 +175,7 @@ jobs:
         shell: bash
         env:
           V8_FROM_SOURCE: "1"
-          LIBCLANG_PATH: /usr/lib/llvm-14/lib
+          LIBCLANG_PATH: /usr/lib/llvm-19/lib
           CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
           RUST_BACKTRACE: '1'
           PRINT_GN_ARGS: '1'
