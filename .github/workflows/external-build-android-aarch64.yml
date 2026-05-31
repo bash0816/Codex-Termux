@@ -215,17 +215,26 @@ jobs:
             echo "Patch not needed or already applied — skipping"
           fi
 
-      - name: Install OpenSSL vendored prerequisites
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends perl make
-
-      - name: Force vendored OpenSSL for Android
+      - name: Patch reqwest TLS to rustls for Android cross-compile
         run: |
           set -eu
-          CLI_CARGO=source-repo/codex-rs/cli/Cargo.toml
-          if [ -f "$CLI_CARGO" ]; then
-            python3 -c 'from pathlib import Path; p=Path("source-repo/codex-rs/cli/Cargo.toml"); s=p.read_text(); ins="openssl = { version = \"0.10\", features = [\"vendored\"] }\n"; s=s.replace("[dependencies]\n", "[dependencies]\n"+ins, 1) if ins not in s else s; p.write_text(s)'
+          WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
+          if [ -f "$WORKSPACE_CARGO" ]; then
+            python3 - <<'PYCODE'
+from pathlib import Path
+path = Path("source-repo/codex-rs/Cargo.toml")
+text = path.read_text(encoding="utf-8")
+old = "reqwest = { version = \"0.12\", features = [\"cookies\"] }"
+new = "reqwest = { version = \"0.12\", default-features = false, features = [\"cookies\", \"rustls-tls\"] }"
+if old not in text:
+    raise SystemExit("reqwest pattern not found")
+text = text.replace(old, new, 1)
+path.write_text(text, encoding="utf-8")
+print("patched reqwest to rustls-tls")
+PYCODE
+            echo "Verifying: openssl-sys should not be in dependency graph"
+            cd source-repo/codex-rs && cargo tree --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
           fi
-          echo OPENSSL_STATIC=1 >> "$GITHUB_ENV"
 
       - name: Build codex Android binaries
         run: |
