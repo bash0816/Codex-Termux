@@ -220,22 +220,8 @@ jobs:
           set -eu
           WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
           if [ -f "$WORKSPACE_CARGO" ]; then
-            python3 - <<'PYCODE'
-from pathlib import Path
-path = Path("source-repo/codex-rs/Cargo.toml")
-text = path.read_text(encoding="utf-8")
-old = "reqwest = { version = \"0.12\", features = [\"cookies\"] }"
-new = "reqwest = { version = \"0.12\", default-features = false, features = [\"cookies\", \"rustls-tls\"] }"
-if old not in text:
-    raise SystemExit("reqwest pattern not found")
-text = text.replace(old, new, 1)
-path.write_text(text, encoding="utf-8")
-print("patched reqwest to rustls-tls")
-PYCODE
-            echo "Verifying: openssl-sys should not be in dependency graph"
-            cd source-repo/codex-rs && cargo tree --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
+            python3 "$GITHUB_WORKSPACE/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
           fi
-
       - name: Build codex Android binaries
         run: |
           set -eu
