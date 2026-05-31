@@ -154,6 +154,7 @@ jobs:
             echo "AR_aarch64_linux_android=$toolchain/llvm-ar"
             echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib"
             echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+            echo "EXTRA_GN_ARGS=android_ndk_root=\"$ndk_dir\" android_ndk_api_level=${ANDROID_API_LEVEL}"
           } >> "$GITHUB_ENV"
 
       - name: Create minimal v8 build crate
