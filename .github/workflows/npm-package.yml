@@ -72,6 +72,32 @@ jobs:
       - name: Pack dry run
         run: npm pack --dry-run
 
+      - name: Tarball content check
+        run: |
+          set -euo pipefail
+          node -e "
+            const { execSync } = require('child_process');
+            const raw = execSync('npm pack --json --dry-run', { encoding: 'utf8' });
+            const d = JSON.parse(raw);
+            const pack = Array.isArray(d) ? d[0] : d;
+            const files = (pack.files||[]).map(f => String(f.path||'').replace(/^\.\//,''));
+            console.log('Packed files:', files.join(', '));
+
+            const pkg = JSON.parse(require('fs').readFileSync('package.json','utf8'));
+            const scripts = pkg.scripts || {};
+            const forbidden = ['preinstall','install','postinstall','prepare'];
+            const found = forbidden.filter(k => scripts[k]);
+            if (found.length) throw new Error('forbidden lifecycle scripts: ' + found.join(', '));
+
+            const unexpected = files.filter(f => {
+              if (f === 'package.json' || f === 'README.md') return false;
+              if (f.startsWith('bin/') || f.startsWith('lib/') || f.startsWith('config/')) return false;
+              return true;
+            });
+            if (unexpected.length) throw new Error('unexpected files in tarball: ' + unexpected.join(', '));
+            console.log('tarball content check passed');
+          "
+
   publish:
     if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
     needs: verify
@@ -80,6 +106,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
     defaults:
       run:
         working-directory: packages/codex-termux
@@ -100,4 +127,4 @@ jobs:
           NPM_TAG: ${{ inputs.npm_tag || 'latest' }}
         run: |
           set -euo pipefail
-          npm publish --access public --tag "${NPM_TAG}"
+          npm publish --provenance --access public --tag "${NPM_TAG}"
