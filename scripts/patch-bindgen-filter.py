@@ -7,27 +7,56 @@ from pathlib import Path
 import sys
 
 
+STRIP_ENV = "CHROMIUM_BINDGEN_STRIP_HOST_X64_FLAGS_FOR_ANDROID"
+
+
 def patch_bindgen_filter(path: Path) -> bool:
     text = path.read_text()
-    lines = text.splitlines(keepends=True)
-
-    if any(line.lstrip().startswith("import os") for line in lines):
+    if STRIP_ENV in text:
         return False
 
-    newline = "\r\n" if any(line.endswith("\r\n") for line in lines) else "\n"
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines(keepends=True)
+    changed = False
 
-    for index, line in enumerate(lines):
-        if line.lstrip().startswith("import "):
-            lines.insert(index + 1, f"import os{newline}")
-            path.write_text("".join(lines), newline="")
-            return True
+    if not any(line.lstrip().startswith("import os") for line in lines):
+        for index, line in enumerate(lines):
+            if line.lstrip().startswith("import "):
+                lines.insert(index + 1, f"import os{newline}")
+                changed = True
+                break
+        else:
+            raise SystemExit(f"no import statement found in {path}")
+        text = "".join(lines)
 
-    raise SystemExit(f"no import statement found in {path}")
+    target = (
+        f"def do_filter(args):{newline}"
+        f"    i = 0{newline}"
+        f"    while i < len(args):{newline}"
+    )
+    replacement = (
+        f"def do_filter(args):{newline}"
+        f"    strip = os.environ.get(\"{STRIP_ENV}\") == \"1\"{newline}"
+        f"    i = 0{newline}"
+        f"    while i < len(args):{newline}"
+        f"        if strip and args[i] in (\"--target=x86_64-unknown-linux-gnu\", \"-msse3\", \"-m64\"):{newline}"
+        f"            i += 1{newline}"
+        f"            continue{newline}"
+    )
+
+    if target not in text:
+        raise SystemExit(f"target do_filter block not found in {path}")
+
+    text = text.replace(target, replacement, 1)
+    path.write_text(text, newline="")
+    return True
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Insert import os after the first import line in a bindgen filter script."
+        description=(
+            "Patch a bindgen filter script with import os and Android host-x64 stripping logic."
+        )
     )
     parser.add_argument("path", help="Path to the Python file to patch in place.")
     return parser.parse_args()
