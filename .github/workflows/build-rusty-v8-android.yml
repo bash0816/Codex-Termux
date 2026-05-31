@@ -312,6 +312,7 @@ jobs:
         if: steps.check_release.outputs.exists != 'true'
         run: |
           set -eu
+          mkdir -p third_party/v8
           printf '[versions."%s"]\nsource_tag = "v%s"\n\n[versions."%s".targets."%s"]\nrepository = "%s"\nrelease_tag = "%s"\narchive_sha256 = "%s"\nbinding_sha256 = "%s"\n' \
             "${V8_VERSION}" "${V8_VERSION}" \
             "${V8_VERSION}" "${ANDROID_TARGET}" \
