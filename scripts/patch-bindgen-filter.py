@@ -11,6 +11,9 @@ STRIP_ENV = "CHROMIUM_BINDGEN_STRIP_HOST_X64_FLAGS_FOR_ANDROID"
 
 
 def patch_bindgen_filter(path: Path) -> bool:
+    if not path.is_file():
+        raise SystemExit(f"not a file: {path}")
+
     text = path.read_text()
     if STRIP_ENV in text:
         return False
