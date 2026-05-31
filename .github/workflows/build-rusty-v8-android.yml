@@ -119,6 +119,7 @@ jobs:
         if: steps.check_release.outputs.exists != 'true'
         run: |
           set -eu
+          sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             libclang-19-dev clang-19 ninja-build python3 \
             pkg-config libglib2.0-dev curl ca-certificates git
@@ -237,7 +238,7 @@ jobs:
           # Patch filter_clang_args.py to strip host x64 flags for Android cross bindgen
           FILTER="$RV8_SRC/build/rust/gni_impl/filter_clang_args.py"
           if [ -f "$FILTER" ]; then
-            python3 scripts/patch-bindgen-filter.py "$FILTER"
+            python3 "$GITHUB_WORKSPACE/scripts/patch-bindgen-filter.py" "$FILTER"
           fi
 
           # Build using rusty_v8 source via [patch.crates-io]
