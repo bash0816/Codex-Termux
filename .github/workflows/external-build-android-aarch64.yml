@@ -215,6 +215,18 @@ jobs:
             echo "Patch not needed or already applied — skipping"
           fi
 
+      - name: Install OpenSSL vendored prerequisites
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends perl make
+
+      - name: Force vendored OpenSSL for Android
+        run: |
+          set -eu
+          CLI_CARGO=source-repo/codex-rs/cli/Cargo.toml
+          if [ -f "$CLI_CARGO" ]; then
+            python3 -c 'from pathlib import Path; p=Path("source-repo/codex-rs/cli/Cargo.toml"); s=p.read_text(); ins="openssl = { version = \"0.10\", features = [\"vendored\"] }\n"; s=s.replace("[dependencies]\n", "[dependencies]\n"+ins, 1) if ins not in s else s; p.write_text(s)'
+          fi
+          echo OPENSSL_STATIC=1 >> "$GITHUB_ENV"
+
       - name: Build codex Android binaries
         run: |
           set -eu
