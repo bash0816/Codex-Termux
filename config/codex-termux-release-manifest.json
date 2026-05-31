@@ -7,7 +7,7 @@
   "latest_candidate_version": "0.133.0",
   "previous_stable_version": "0.131.0",
   "candidate_state": "building",
-  "candidate_state_status": "complete",
+  "candidate_state_status": "building",
   "audit_evidence_ref": "",
   "source_repo": "openai/codex",
   "source_ref": "rust-v0.133.0",
