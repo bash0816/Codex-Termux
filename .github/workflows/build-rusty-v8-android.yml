@@ -235,6 +235,12 @@ jobs:
             echo "Host amd64 sysroot installed"
           fi
 
+          # Patch filter_clang_args.py to strip host x64 flags for Android cross bindgen
+          FILTER="$RV8_SRC/build/rust/gni_impl/filter_clang_args.py"
+          if [ -f "$FILTER" ]; then
+            python3 "$GITHUB_WORKSPACE/scripts/patch-bindgen-filter.py" "$FILTER"
+          fi
+
           # Build using rusty_v8 source via [patch.crates-io]
           build_dir="$RUNNER_TEMP/v8-build-crate"
           mkdir -p "$build_dir/src"
