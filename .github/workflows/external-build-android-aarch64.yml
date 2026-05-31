@@ -220,7 +220,7 @@ jobs:
           set -eu
           WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
           if [ -f "$WORKSPACE_CARGO" ]; then
-            python3 "$GITHUB_WORKSPACE/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
+            python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
           fi
       - name: Build codex Android binaries
         run: |
