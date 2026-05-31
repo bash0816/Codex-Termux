@@ -195,6 +195,15 @@ jobs:
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/jinja2
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/markupsafe
           git -C "$RV8_SRC" submodule update --init --depth=1 third_party/abseil-cpp
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/simdutf
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/fp16/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/fast_float/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/highway/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/partition_alloc
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libunwind/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/libc++/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/dragonbox/src
+          git -C "$RV8_SRC" submodule update --init --depth=1 third_party/llvm-libc/src
           # Clone v8 submodule fully (gni/ and other source files required by GN)
           git -C "$RV8_SRC" submodule update --init --depth=1 v8
           echo "v8 SHA: $(git -C "$RV8_SRC" submodule status v8 | awk '{print $1}')"
