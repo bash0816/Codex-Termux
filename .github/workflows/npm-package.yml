@@ -1,14 +1,10 @@
-name: npm package (verify)
-
-# Publish is disabled in this repository.
-# This workflow runs verify-only on PRs and pushes.
+name: npm package
 
 on:
   pull_request:
     paths:
       - 'packages/codex-termux/**'
       - 'config/codex-termux-release-manifest.json'
-      - 'docs/20260503_codex-termux-release-guidance.md'
       - 'README.md'
       - 'scripts/**'
       - '.github/workflows/npm-package.yml'
@@ -20,11 +16,23 @@ on:
     paths:
       - 'packages/codex-termux/**'
       - 'config/codex-termux-release-manifest.json'
-      - 'docs/20260503_codex-termux-release-guidance.md'
       - 'README.md'
       - 'scripts/**'
       - '.github/workflows/npm-package.yml'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish @bash0816/codex-termux to npm"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      npm_tag:
+        description: "npm dist-tag to use when publishing"
+        required: false
+        default: "latest"
 
 permissions:
   contents: read
@@ -32,6 +40,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/codex-termux
     steps:
       - uses: actions/checkout@v4
 
@@ -41,23 +52,52 @@ jobs:
 
       - name: Syntax check
         run: |
-          sh -n packages/codex-termux/bin/codex
-          sh -n packages/codex-termux/bin/codex-exec
-          sh -n packages/codex-termux/bin/codex-termux
-          sh -n packages/codex-termux/lib/stage-android-runtime.sh
-          sh -n scripts/stage-public-android-runtime.sh
-          node --check packages/codex-termux/bin/codex.js
-          node --check packages/codex-termux/bin/codex-exec.js
-          node --check packages/codex-termux/lib/launcher.js
-          node --check packages/codex-termux/lib/check-updates.js
-          node --check scripts/prepare-public-release-from-candidate.js
-          node --check scripts/sync-public-release-from-manifest.js
-          node --check scripts/check-public-release-skeleton.js
-          node --check scripts/check-public-publish-guard.js
+          sh -n bin/codex
+          sh -n bin/codex-exec
+          sh -n bin/codex-termux
+          sh -n lib/stage-android-runtime.sh
+          sh -n ../../scripts/stage-public-android-runtime.sh
+          node --check bin/codex.js
+          node --check bin/codex-exec.js
+          node --check lib/launcher.js
+          node --check lib/check-updates.js
+          node --check ../../scripts/prepare-public-release-from-candidate.js
+          node --check ../../scripts/sync-public-release-from-manifest.js
+          node --check ../../scripts/check-public-release-skeleton.js
+          node --check ../../scripts/check-public-publish-guard.js
 
       - name: Manifest / README drift check
-        run: node scripts/check-public-release-skeleton.js
+        run: node ../../scripts/check-public-release-skeleton.js
 
-      - name: npm pack dry run
-        working-directory: packages/codex-termux
+      - name: Pack dry run
         run: npm pack --dry-run
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/codex-termux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish guard
+        run: node ../../scripts/check-public-publish-guard.js
+
+      - name: Publish package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TAG: ${{ inputs.npm_tag || 'latest' }}
+        run: |
+          set -euo pipefail
+          npm publish --access public --tag "${NPM_TAG}"
