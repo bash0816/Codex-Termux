@@ -191,6 +191,7 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
           RUST_BACKTRACE: '1'
           PRINT_GN_ARGS: '1'
+          CHROMIUM_BINDGEN_STRIP_HOST_X64_FLAGS_FOR_ANDROID: '1'
         run: |
           set -Eeuo pipefail
 
