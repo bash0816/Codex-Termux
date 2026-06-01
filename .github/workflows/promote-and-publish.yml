@@ -1,0 +1,109 @@
+name: Promote and Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to promote and publish (e.g. 0.133.0)"
+        required: true
+      npm_tag:
+        description: "npm dist-tag"
+        required: false
+        default: "latest"
+      verification_date:
+        description: "Device B verification date (YYYY-MM-DD, required)"
+        required: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  promote-and-publish:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify candidate state
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          latest_candidate=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_candidate_version")
+          if [ "$latest_candidate" != "$VER" ]; then
+            echo "ERROR: $VER is not the current candidate (got $latest_candidate)" >&2
+            exit 1
+          fi
+          echo "Candidate version confirmed: $VER"
+
+      - name: Verify npm candidate exists
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          published=$(npm view "@bash0816/codex-termux@candidate" version 2>/dev/null || echo "")
+          if [ "$published" != "$VER" ]; then
+            echo "ERROR: @bash0816/codex-termux@candidate is not $VER (got $published)" >&2
+            exit 1
+          fi
+          echo "Confirmed: @bash0816/codex-termux@candidate = $VER"
+
+      - name: Verify Device B verification record exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          VDATE="${{ inputs.verification_date }}"
+          record=$(gh api "repos/bash0816/private-repo/contents/docs/verification-records/codex-${VER}-${VDATE}.md" \
+            --jq '.name' 2>/dev/null || echo "")
+          if [ -z "$record" ]; then
+            echo "ERROR: verification record not found: docs/verification-records/codex-${VER}-${VDATE}.md" >&2
+            echo "Run Device B verification and push result to private-repo before promoting." >&2
+            exit 1
+          fi
+          echo "Verification record found: $record"
+
+      - name: Publish guard check
+        run: node scripts/check-public-publish-guard.js
+
+      - name: Publish package
+        working-directory: packages/codex-termux
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TAG: ${{ inputs.npm_tag || 'latest' }}
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          npm publish --provenance --access public --tag "${NPM_TAG}"
+          echo "Published @bash0816/codex-termux@${VER} as ${NPM_TAG}"
+
+      - name: Verify registry publication
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          published=$(npm view "@bash0816/codex-termux@${VER}" version 2>/dev/null || echo "")
+          if [ "$published" != "$VER" ]; then
+            echo "ERROR: registry verification failed" >&2
+            exit 1
+          fi
+          echo "Registry verified: @bash0816/codex-termux@${VER}"
+
+      - name: Dispatch release-finalize
+        run: |
+          set -eu
+          VER="${{ inputs.version }}"
+          gh workflow run release-finalize.yml \
+            --repo bash0816/Codex-Termux \
+            --field version="${VER}"
+          echo "release-finalize dispatched for ${VER}"
