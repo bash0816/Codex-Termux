@@ -215,12 +215,45 @@ jobs:
             echo "Patch not needed or already applied — skipping"
           fi
 
+          # Patch: add vendored OpenSSL for Android target
+          python3 - <<'INNERPY'
+          from pathlib import Path
+
+          path = Path('source-repo/codex-rs/core/Cargo.toml')
+          text = path.read_text(encoding='utf-8')
+
+          android_header = '[target.aarch64-linux-android.dependencies]'
+          android_block = android_header + '\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          musl_block = '[target.aarch64-unknown-linux-musl.dependencies]\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          openssl_entry = 'openssl-sys = { workspace = true, features = ["vendored"] }'
+
+          if android_block in text:
+              print('Android vendored OpenSSL already present - skip')
+          elif android_header in text:
+              idx = text.index(android_header)
+              section = text[idx:]
+              next_sec = section.find('\n[', 1)
+              section_content = section[:next_sec] if next_sec != -1 else section
+              if openssl_entry in section_content:
+                  print('openssl-sys vendored already in Android section (different format) - skip')
+              else:
+                  raise SystemExit('ERROR: Android target section exists without openssl-sys vendored - manual review required')
+          elif musl_block in text:
+              text = text.replace(musl_block, musl_block + '\n' + android_block, 1)
+              path.write_text(text, encoding='utf-8')
+              print('patched core/Cargo.toml with Android vendored OpenSSL block')
+          else:
+              raise SystemExit('ERROR: musl openssl-sys block not found in core/Cargo.toml')
+          INNERPY
+
       - name: Patch reqwest TLS to rustls for Android cross-compile
         run: |
           set -eu
           WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
           if [ -f "$WORKSPACE_CARGO" ]; then
             python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
+            echo "Verifying: openssl-sys should not be in dependency graph"
+            cd source-repo/codex-rs && cargo tree --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
           fi
 
       - name: Diagnose openssl-sys dependency path
