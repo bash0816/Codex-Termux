@@ -1,0 +1,102 @@
+name: Release Finalize
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to finalize (e.g. 0.133.0)"
+        required: true
+      release_notes:
+        description: "Public release summary (1-3 lines)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    env:
+      VER: ${{ inputs.version }}
+      NOTES: ${{ inputs.release_notes }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate version format
+        run: |
+          set -eu
+          echo "$VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' || {
+            echo "ERROR: Invalid version format: $VER" >&2
+            exit 1
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify npm publish exists
+        run: |
+          set -eu
+          published=$(npm view "@bash0816/codex-termux@${VER}" version 2>/dev/null || echo "")
+          if [ "$published" != "$VER" ]; then
+            echo "ERROR: @bash0816/codex-termux@${VER} not published on npm" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+
+      - name: Update README and RELEASES.md on feature branch then auto-merge
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch="automation/docs-${VER}"
+          git checkout -b "$branch"
+
+          sed -i "s/codex-termux@[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/codex-termux@${VER}/g" README.md || true
+
+          date_str=$(date -u +%Y-%m-%d)
+          notes="$NOTES"
+          [ -z "$notes" ] && notes="upstream openai/codex@${VER} 追従。"
+          entry="## ${VER} — ${date_str}\n\n${notes}\n\n### Install\n\n\`\`\`sh\nnpm install -g @bash0816/codex-termux@${VER}\ncodex --version\n\`\`\`\n\n"
+          if [ -f RELEASES.md ] && grep -qF "## ${VER}" RELEASES.md; then
+            echo "RELEASES.md already has ${VER} entry"
+          else
+            printf "%b" "${entry}" > /tmp/new_entry.md
+            if [ -f RELEASES.md ]; then
+              cat /tmp/new_entry.md RELEASES.md > /tmp/releases_new.md
+              mv /tmp/releases_new.md RELEASES.md
+            else
+              mv /tmp/new_entry.md RELEASES.md
+            fi
+          fi
+
+          git add README.md RELEASES.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "docs: update README and RELEASES for ${VER}"
+          git push --force-with-lease origin "$branch" || git push --force origin "$branch"
+
+          existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$existing_pr" ]; then
+            pr_number="$existing_pr"
+            echo "Reusing existing PR #${pr_number}"
+          else
+            pr_url=$(gh pr create --base main --head "$branch" \
+              --title "docs: update README and RELEASES for ${VER}" \
+              --body "Automated docs update for @bash0816/codex-termux@${VER}. Auto-merge.")
+            pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+            echo "PR created: $pr_url"
+          fi
+
+          gh pr merge "$pr_number" --merge --delete-branch=false
+          echo "PR #${pr_number} merged to main"
+          git fetch origin main
+          echo "main updated"
