@@ -215,6 +215,14 @@ jobs:
             echo "Patch not needed or already applied — skipping"
           fi
 
+          # Patch: extend voice/audio_device cfg to exclude Android (tui/src/lib.rs)
+          lib_rs="source-repo/codex-rs/tui/src/lib.rs"
+          test "$(grep -cF '#[cfg(not(target_os = "linux"))]' "$lib_rs")" -eq 2
+          test "$(grep -cF '#[cfg(target_os = "linux")]' "$lib_rs")" -eq 2
+          sed -i 's/cfg(not(target_os = "linux"))/cfg(not(any(target_os = "linux", target_os = "android")))/g' "$lib_rs"
+          sed -i 's/cfg(target_os = "linux")/cfg(any(target_os = "linux", target_os = "android"))/g' "$lib_rs"
+          echo "Applied Android audio/voice cfg patch to tui/src/lib.rs"
+
           # Patch: add vendored OpenSSL for Android target
           python3 - <<'INNERPY'
           from pathlib import Path
