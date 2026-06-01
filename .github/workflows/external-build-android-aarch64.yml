@@ -215,63 +215,6 @@ jobs:
             echo "Patch not needed or already applied — skipping"
           fi
 
-          # Patch: extend voice/audio_device cfg to exclude Android
-          python3 - <<'LIBPY'
-          from pathlib import Path
-          from textwrap import dedent
-
-          lib_rs = Path('source-repo/codex-rs/tui/src/lib.rs')
-          text = lib_rs.read_text(encoding='utf-8')
-
-          REPLACEMENTS = [
-              (
-                  dedent("""                      #[cfg(not(target_os = "linux"))]
-                      mod audio_device;"""),
-                  dedent("""                      #[cfg(not(any(target_os = "linux", target_os = "android")))]
-                      mod audio_device;"""),
-              ),
-              (
-                  dedent("""                      #[cfg(target_os = "linux")]
-                      #[allow(dead_code)]
-                      mod audio_device {"""),
-                  dedent("""                      #[cfg(any(target_os = "linux", target_os = "android"))]
-                      #[allow(dead_code)]
-                      mod audio_device {"""),
-              ),
-              (
-                  dedent("""                      #[cfg(not(target_os = "linux"))]
-                      mod voice;"""),
-                  dedent("""                      #[cfg(not(any(target_os = "linux", target_os = "android")))]
-                      mod voice;"""),
-              ),
-              (
-                  dedent("""                      #[cfg(target_os = "linux")]
-                      #[allow(dead_code)]
-                      mod voice {"""),
-                  dedent("""                      #[cfg(any(target_os = "linux", target_os = "android"))]
-                      #[allow(dead_code)]
-                      mod voice {"""),
-              ),
-          ]
-
-          new_text = text
-          for old, new in REPLACEMENTS:
-              if new in new_text:
-                  print(f'already patched: {repr(old[:40])}')
-                  continue
-              if old not in new_text:
-                  raise SystemExit(f'ERROR: pattern not found: {repr(old[:60])}')
-              new_text = new_text.replace(old, new, 1)
-              print(f'patched: {repr(old[:40])}')
-
-          for old, new in REPLACEMENTS:
-              if old in new_text:
-                  raise SystemExit(f'ERROR: old pattern still present: {repr(old[:60])}')
-
-          lib_rs.write_text(new_text, encoding='utf-8')
-          print('tui/src/lib.rs patched: voice and audio_device Android cfg extended')
-          LIBPY
-
           # Patch: add vendored OpenSSL for Android target
           python3 - <<'INNERPY'
           from pathlib import Path
