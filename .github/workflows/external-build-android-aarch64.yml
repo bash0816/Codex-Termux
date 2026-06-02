@@ -295,7 +295,12 @@ jobs:
           set -eu
           echo "=== memory/disk before build ===" && free -h && df -h /home/runner /tmp && ulimit -a
           cd source-repo/codex-rs
-          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-cli -p codex-exec
+          export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld"
+          echo "Building codex-cli..."
+          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-cli
+          echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
+          echo "Building codex-exec..."
+          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-exec
           echo "=== memory/disk after build ===" && free -h && df -h /home/runner /tmp
 
       - name: Assemble bundle and manifest
