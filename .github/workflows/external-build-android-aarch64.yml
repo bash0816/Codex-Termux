@@ -120,10 +120,12 @@ jobs:
         run: |
           set -eu
           df -h /home/runner /tmp
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          free -h
+          SWAP_FILE="$RUNNER_TEMP/swapfile"
+          sudo fallocate -l 4G "$SWAP_FILE"
+          sudo chmod 600 "$SWAP_FILE"
+          sudo mkswap "$SWAP_FILE"
+          sudo swapon "$SWAP_FILE"
           sudo sysctl vm.swappiness=10
           free -h
           df -h /home/runner /tmp
