@@ -24,7 +24,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     env:
       RUST_VERSION: ${{ inputs.rust_version }}
       ANDROID_NDK_REVISION: "r27c"
@@ -116,6 +116,18 @@ jobs:
           print(f"workspace.package.version={version}")
           PY
 
+      - name: Add swap space
+        run: |
+          set -eu
+          df -h /home/runner /tmp
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo sysctl vm.swappiness=10
+          free -h
+          df -h /home/runner /tmp
+
       - name: Install Rust
         run: |
           set -eu
@@ -146,6 +158,8 @@ jobs:
             echo "RANLIB_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
             echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
           } >> "$GITHUB_ENV"
+          rm -f "$ndk_zip"
+          df -h /home/runner /tmp
 
       - name: Configure V8 Android artifact provenance
         run: |
