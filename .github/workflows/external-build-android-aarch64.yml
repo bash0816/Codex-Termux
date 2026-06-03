@@ -307,7 +307,15 @@ jobs:
           trap on_term TERM
           echo "=== memory/disk before build ===" && free -h && df -h /home/runner /tmp && ulimit -a
           cd source-repo/codex-rs
-          export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld -C debuginfo=0"
+          RT_LIB=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib" \
+            -name "libclang_rt.builtins-aarch64-android.a" 2>/dev/null | head -1)
+          echo "=== compiler-rt ==="
+          test -f "$RT_LIB" && echo "found: $RT_LIB" || { echo 'ERROR: libclang_rt.builtins not found'; exit 1; }
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" \
+            -g --defined-only "$RT_LIB" 2>/dev/null | grep -q '__clear_cache' \
+            && echo '__clear_cache: confirmed in RT_LIB' \
+            || echo '__clear_cache: not found in RT_LIB (may still link via other path)'
+          export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld -C debuginfo=0 -C link-arg=$RT_LIB"
           echo "Building codex-cli..."
           cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-cli 2>&1 | tee /tmp/build-codex-cli.log
           echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
