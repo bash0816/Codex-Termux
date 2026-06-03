@@ -291,6 +291,11 @@ jobs:
           grep -r 'openssl\|native-tls' --include=Cargo.toml . | grep -v 'target/' | grep -v '.cargo/' || true
 
       - name: Build codex Android binaries
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_PROFILE_RELEASE_DEBUG: "0"
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
+          CARGO_PROFILE_RELEASE_LTO: "false"
         run: |
           set -euo pipefail
           on_term() {
@@ -302,7 +307,7 @@ jobs:
           trap on_term TERM
           echo "=== memory/disk before build ===" && free -h && df -h /home/runner /tmp && ulimit -a
           cd source-repo/codex-rs
-          export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld"
+          export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld -C debuginfo=0"
           echo "Building codex-cli..."
           cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-cli 2>&1 | tee /tmp/build-codex-cli.log
           echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
