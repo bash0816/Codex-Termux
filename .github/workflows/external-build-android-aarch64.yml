@@ -353,7 +353,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codex-external-android-aarch64-build-logs-${{ github.run_id }}
           path: |
@@ -362,7 +362,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload artifact bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codex-external-android-aarch64-${{ github.run_id }}
           path: ${{ env.BUNDLE_DIR }}
