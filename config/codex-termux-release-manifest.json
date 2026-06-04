@@ -4,7 +4,7 @@
   "public_distribution_status": "staged_for_publish",
   "support_status": "public_supported",
   "latest_audited_version": "0.131.1",
-  "latest_candidate_version": "0.133.0",
+  "latest_candidate_version": "0.133.0-1",
   "previous_stable_version": "0.131.0",
   "candidate_state": "ready_to_publish",
   "candidate_state_status": "ready_to_publish",
@@ -36,6 +36,6 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-05-25T14:00:00+09:00",
-  "updated_at": "2026-06-04T06:29:47Z",
+  "updated_at": "2026-06-04T21:47:09Z",
   "build_run_id": "26927198159"
 }
