@@ -92,12 +92,17 @@ jobs:
           set -eu
           VER="${{ inputs.version }}"
           NPM_TAG="${{ inputs.npm_tag || 'latest' }}"
-          promoted=$(npm view "@bash0816/codex-termux" "dist-tags.${NPM_TAG}" 2>/dev/null || echo "")
-          if [ "$promoted" != "$VER" ]; then
-            echo "ERROR: dist-tag ${NPM_TAG} is ${promoted}, expected ${VER}" >&2
-            exit 1
-          fi
-          echo "Registry verified: @bash0816/codex-termux@${NPM_TAG} = ${VER}"
+          for i in 1 2 3 4 5; do
+            promoted=$(npm view "@bash0816/codex-termux" "dist-tags.${NPM_TAG}" 2>/dev/null || echo "")
+            if [ "$promoted" = "$VER" ]; then
+              echo "Registry verified: @bash0816/codex-termux@${NPM_TAG} = ${VER}"
+              exit 0
+            fi
+            echo "Attempt ${i}: dist-tag ${NPM_TAG} = ${promoted} (expected ${VER}), retrying..."
+            sleep 10
+          done
+          echo "ERROR: dist-tag ${NPM_TAG} is ${promoted}, expected ${VER}" >&2
+          exit 1
 
       - name: Dispatch release-finalize
         run: |
