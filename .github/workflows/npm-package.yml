@@ -102,7 +102,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
     needs: verify
     runs-on: ubuntu-latest
-    # github.token has environments:read by default (GitHub Actions OIDC scope)
+    # github.token has read access to environments for public repos (GitHub Actions GITHUB_TOKEN spec)
     steps:
       - name: Verify npm-publish environment has required reviewers
         env:
@@ -117,8 +117,7 @@ jobs:
           echo "npm-publish environment reviewer check passed (count: ${reviewers})"
 
   publish:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
-    needs: preflight
+    needs: [verify, preflight]
     runs-on: ubuntu-latest
     environment: npm-publish
     permissions:
