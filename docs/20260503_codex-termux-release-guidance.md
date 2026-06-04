@@ -16,4 +16,3 @@ npm install -g @bash0816/codex-termux@latest
 
 - Do not commit build strategy, internal logs, or test infrastructure details to this repo.
 - Binary files (.bin, .so) are staged locally for publish only — not committed to git.
-- See private-repo for build procedures and release plans.
