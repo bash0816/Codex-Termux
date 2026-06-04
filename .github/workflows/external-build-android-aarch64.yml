@@ -344,7 +344,9 @@ jobs:
           RT_LIB=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib" \
             -name "libclang_rt.builtins-aarch64-android.a" 2>/dev/null | head -1)
           echo "=== compiler-rt ==="
+          # shellcheck disable=SC2015
           test -f "$RT_LIB" && echo "found: $RT_LIB" || { echo 'ERROR: libclang_rt.builtins not found'; exit 1; }
+          # shellcheck disable=SC2015
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" \
             -g --defined-only "$RT_LIB" 2>/dev/null | grep -q '__clear_cache' \
             && echo '__clear_cache: confirmed in RT_LIB' \
