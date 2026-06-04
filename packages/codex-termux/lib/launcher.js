@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'child_process';
 import { createRequire } from 'module';
-import { existsSync } from 'fs';
-import { constants as osConstants } from 'os';
+import { existsSync, readdirSync, statSync, rmSync } from 'fs';
+import { constants as osConstants, homedir } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -10,6 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageDir = resolve(__dirname, '..');
 const termuxPrefix = process.env.PREFIX || '/data/data/com.termux/files/usr';
+const STALE_ARG0_WARNING =
+  'WARNING: failed to clean up stale arg0 temp dirs: try_lock() not supported';
 const blockedLdEntries = new Set([
   `${termuxPrefix}/lib`,
   `${termuxPrefix}/libexec`,
@@ -23,6 +25,10 @@ function sanitizeLdLibraryPath(binDir) {
     .filter((entry) => entry && !blockedLdEntries.has(entry));
 
   return [binDir, ...extras].join(':');
+}
+
+function shouldSuppressStderrLine(line) {
+  return line.trimEnd() === STALE_ARG0_WARNING;
 }
 
 function readPackageRoot(request) {
@@ -104,6 +110,31 @@ function resolveBinaryForExec(entryName) {
 
 let cachedSubcommands;
 
+function cleanupStaleArg0Dirs() {
+  const codexHome = process.env.CODEX_HOME || join(homedir(), '.codex');
+  const arg0Root = join(codexHome, 'tmp', 'arg0');
+  const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (conservative: avoids killing long-running sessions)
+
+  try {
+    const entries = readdirSync(arg0Root, { withFileTypes: true });
+    const now = Date.now();
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith("codex-arg0-")) continue;
+      const dirPath = join(arg0Root, entry.name);
+      try {
+        const st = statSync(dirPath);
+        if (now - st.mtimeMs > TTL_MS) {
+          rmSync(dirPath, { recursive: true, force: true });
+        }
+      } catch {
+        // TOCTOU: directory may have disappeared; ignore
+      }
+    }
+  } catch {
+    // arg0Root does not exist yet; ignore
+  }
+}
+
 function detectSubcommands(binaryPath, env) {
   if (cachedSubcommands !== undefined) {
     return cachedSubcommands;
@@ -179,6 +210,7 @@ function buildArgs(entryName, binaryPath, env, argv) {
 
 export function runLauncher({ entryName, argv }) {
   const binDir = join(packageDir, 'bin');
+  cleanupStaleArg0Dirs();
   const { binaryPath, execFallback } = resolveBinaryForExec(entryName);
   const targetBinary = binaryPath || execFallback;
 
@@ -197,9 +229,23 @@ export function runLauncher({ entryName, argv }) {
     LD_LIBRARY_PATH: sanitizeLdLibraryPath(binDir)
   };
 
-  const child = spawn(targetBinary, buildArgs(entryName, targetBinary, env, argv), {
+  const termuxOverrideArgs = ['-c', 'check_for_update_on_startup=false'];
+  const child = spawn(targetBinary, [...termuxOverrideArgs, ...buildArgs(entryName, targetBinary, env, argv)], {
     env,
-    stdio: 'inherit'
+    stdio: ['inherit', 'inherit', 'pipe']
+  });
+
+  let stderrBuffer = '';
+  child.stderr.on('data', (chunk) => {
+    stderrBuffer += chunk.toString();
+    const lines = stderrBuffer.split('\n');
+    stderrBuffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!shouldSuppressStderrLine(line)) {
+        process.stderr.write(`${line}\n`);
+      }
+    }
   });
 
   child.on('error', (error) => {
@@ -208,6 +254,9 @@ export function runLauncher({ entryName, argv }) {
   });
 
   child.on('exit', (code, signal) => {
+    if (stderrBuffer && !shouldSuppressStderrLine(stderrBuffer)) {
+      process.stderr.write(stderrBuffer);
+    }
     if (signal) {
       process.exit(128 + (osConstants.signals[signal] ?? 1));
       return;
