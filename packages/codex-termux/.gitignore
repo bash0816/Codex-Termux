@@ -1,0 +1,3 @@
+bin/*.bin
+bin/libc++_shared.so
+*.tgz
