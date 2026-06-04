@@ -361,7 +361,7 @@ jobs:
 
       - name: Upload build log
         if: always() && steps.check_release.outputs.exists != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: v8-build-log-${{ github.run_id }}
           path: ${{ runner.temp }}/v8-build.log
