@@ -276,6 +276,7 @@ jobs:
           # Same fix already applied upstream in installation_id.rs and arg0/lib.rs.
           # Remove this patch once upstream openai/codex fixes unix_socket.rs.
           unix_socket_rs="source-repo/codex-rs/app-server-transport/src/transport/unix_socket.rs"
+          set +e
           python3 - "$unix_socket_rs" <<'LOCKPYEOF'
           import sys, pathlib
           p = pathlib.Path(sys.argv[1])
@@ -286,20 +287,23 @@ jobs:
               p.write_text(txt.replace(old, new, 1))
               print("Applied Android startup lock fix to unix_socket.rs")
               sys.exit(0)
-          else:
-              print("Startup lock patch not needed or already applied — skipping")
+          elif new in txt:
+              print("Startup lock patch already applied — skipping")
               sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in unix_socket.rs — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
           LOCKPYEOF
           LOCK_STATUS=$?
+          set -e
           if [ "$LOCK_STATUS" -eq 0 ]; then
-            # Patch was applied — assert cfg guard is now present
             if ! grep -qF '#[cfg(not(target_os = "android"))]' "$unix_socket_rs"; then
               echo "ERROR: Android cfg guard not found in unix_socket.rs after patch" >&2
               exit 1
             fi
             echo "Assertion passed: Android cfg guard present in unix_socket.rs"
           elif [ "$LOCK_STATUS" -eq 2 ]; then
-            echo "Skipped: upstream already fixed or file.lock() removed — no assertion needed"
+            echo "Skipped: unix_socket.rs already fixed"
           else
             exit "$LOCK_STATUS"
           fi
@@ -308,6 +312,7 @@ jobs:
           # Called unconditionally on every codex exec — will crash without this guard.
           # Remove once upstream openai/codex#26277 is merged.
           installation_id_rs="source-repo/codex-rs/core/src/installation_id.rs"
+          set +e
           python3 - "$installation_id_rs" <<'INSTPYEOF'
           import sys, pathlib
           p = pathlib.Path(sys.argv[1])
@@ -318,11 +323,15 @@ jobs:
               p.write_text(txt.replace(old, new, 1))
               print("Applied Android lock fix to installation_id.rs")
               sys.exit(0)
-          else:
-              print("installation_id.rs lock patch not needed or already applied — skipping")
+          elif new in txt:
+              print("installation_id.rs lock patch already applied — skipping")
               sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in installation_id.rs — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
           INSTPYEOF
           INST_STATUS=$?
+          set -e
           if [ "$INST_STATUS" -eq 0 ]; then
             if ! grep -qF '#[cfg(not(target_os = "android"))]' "$installation_id_rs"; then
               echo "ERROR: Android cfg guard not found in installation_id.rs after patch" >&2
@@ -330,7 +339,7 @@ jobs:
             fi
             echo "Assertion passed: Android cfg guard present in installation_id.rs"
           elif [ "$INST_STATUS" -eq 2 ]; then
-            echo "Skipped: installation_id.rs already fixed — no assertion needed"
+            echo "Skipped: installation_id.rs already fixed"
           else
             exit "$INST_STATUS"
           fi
@@ -339,6 +348,7 @@ jobs:
           # Fail-safe (try_lock returns None on failure) but guard recommended for clarity.
           # Remove once upstream openai/codex#26277 is merged.
           arg0_rs="source-repo/codex-rs/arg0/src/lib.rs"
+          set +e
           python3 - "$arg0_rs" <<'ARG0PYEOF'
           import sys, pathlib
           p = pathlib.Path(sys.argv[1])
@@ -349,38 +359,47 @@ jobs:
               p.write_text(txt.replace(old, new, 1))
               print("Applied Android try_lock fix to arg0/src/lib.rs")
               sys.exit(0)
-          else:
-              print("arg0/lib.rs try_lock patch not needed or already applied — skipping")
+          elif new in txt:
+              print("arg0/lib.rs try_lock patch already applied — skipping")
               sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in arg0/src/lib.rs (try_lock) — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
           ARG0PYEOF
           ARG0_STATUS=$?
+          set -e
           if [ "$ARG0_STATUS" -eq 0 ]; then
-            echo "Assertion passed: arg0/lib.rs patched"
+            echo "Assertion passed: arg0/lib.rs try_lock patched"
           elif [ "$ARG0_STATUS" -eq 2 ]; then
-            echo "Skipped: arg0/lib.rs already fixed"
+            echo "Skipped: arg0/lib.rs try_lock already fixed"
           else
             exit "$ARG0_STATUS"
           fi
 
           # Patch: fix try_lock_dir in janitor_cleanup for Android (best-effort, ENOTSUP -> skip dir)
-          # On Android flock is unsupported, so try_lock() returns an OS error that would propagate
-          # through try_lock_dir -> janitor_cleanup. Add Android cfg arm to treat it as "skip dir".
+          # On Android flock is unsupported, try_lock() returns an OS error that propagates through
+          # try_lock_dir -> janitor_cleanup. Add Android cfg arm to treat unsupported errors as "skip dir".
           # Remove once upstream openai/codex#26277 is merged.
+          set +e
           python3 - "$arg0_rs" <<'ARG0JANPYEOF'
           import sys, pathlib
           p = pathlib.Path(sys.argv[1])
           txt = p.read_text()
-          old = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        Err(e) => Err(e),'
-          new = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        #[cfg(target_os = "android")]\n        Err(_) => Ok(None),\n        Err(e) => Err(e),'
+          old = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        Err(err) => Err(err.into()),'
+          new = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        #[cfg(target_os = "android")]\n        Err(_) => Ok(None),\n        Err(err) => Err(err.into()),'
           if old in txt:
               p.write_text(txt.replace(old, new, 1))
               print("Applied Android try_lock_dir janitor fix to arg0/src/lib.rs")
               sys.exit(0)
-          else:
-              print("arg0/lib.rs try_lock_dir patch not needed or already applied — skipping")
+          elif new in txt:
+              print("arg0/lib.rs try_lock_dir patch already applied — skipping")
               sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in arg0/src/lib.rs (try_lock_dir) — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
           ARG0JANPYEOF
           ARG0JAN_STATUS=$?
+          set -e
           if [ "$ARG0JAN_STATUS" -eq 0 ]; then
             echo "Assertion passed: arg0/lib.rs try_lock_dir patched"
           elif [ "$ARG0JAN_STATUS" -eq 2 ]; then
