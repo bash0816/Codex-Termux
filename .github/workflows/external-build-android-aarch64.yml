@@ -270,6 +270,40 @@ jobs:
               raise SystemExit('ERROR: musl openssl-sys block not found in core/Cargo.toml')
           INNERPY
 
+          # Patch: fix startup lock for Android (acquire_app_server_startup_lock)
+          # unix_socket.rs calls file.lock() without Android cfg guard, causing
+          # "lock() not supported" on Android /data partition (flock ENOTSUP).
+          # Same fix already applied upstream in installation_id.rs and arg0/lib.rs.
+          # Remove this patch once upstream openai/codex fixes unix_socket.rs.
+          unix_socket_rs="source-repo/codex-rs/app-server-transport/src/transport/unix_socket.rs"
+          python3 - "$unix_socket_rs" <<'LOCKPYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+txt = p.read_text()
+old = '        file.lock()?;'
+new = '        #[cfg(not(target_os = "android"))]\n        file.lock()?;'
+if old in txt:
+    p.write_text(txt.replace(old, new, 1))
+    print("Applied Android startup lock fix to unix_socket.rs")
+    sys.exit(0)
+else:
+    print("Startup lock patch not needed or already applied — skipping")
+    sys.exit(2)
+LOCKPYEOF
+          LOCK_STATUS=$?
+          if [ "$LOCK_STATUS" -eq 0 ]; then
+            # Patch was applied — assert cfg guard is now present
+            if ! grep -qF '#[cfg(not(target_os = "android"))]' "$unix_socket_rs"; then
+              echo "ERROR: Android cfg guard not found in unix_socket.rs after patch" >&2
+              exit 1
+            fi
+            echo "Assertion passed: Android cfg guard present in unix_socket.rs"
+          elif [ "$LOCK_STATUS" -eq 2 ]; then
+            echo "Skipped: upstream already fixed or file.lock() removed — no assertion needed"
+          else
+            exit "$LOCK_STATUS"
+          fi
+
       - name: Patch reqwest TLS to rustls for Android cross-compile
         run: |
           set -eu
