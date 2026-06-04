@@ -3,6 +3,10 @@
   "version": "0.133.0",
   "description": "Termux wrapper package for OpenAI Codex",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bash0816/Codex-Termux.git"
+  },
   "type": "module",
   "bin": {
     "codex-termux": "bin/codex-termux",
