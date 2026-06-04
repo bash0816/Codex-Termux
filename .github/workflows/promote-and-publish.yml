@@ -75,29 +75,29 @@ jobs:
           echo "Verification record found: $record"
 
       - name: Publish guard check
-        run: node scripts/check-public-publish-guard.js
+        run: node scripts/check-public-publish-guard.js --skip-runtime-files
 
-      - name: Publish package
-        working-directory: packages/codex-termux
+      - name: Promote dist-tag
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TAG: ${{ inputs.npm_tag || 'latest' }}
         run: |
           set -eu
           VER="${{ inputs.version }}"
-          npm publish --provenance --access public --tag "${NPM_TAG}"
-          echo "Published @bash0816/codex-termux@${VER} as ${NPM_TAG}"
+          npm dist-tag add "@bash0816/codex-termux@${VER}" "${NPM_TAG}"
+          echo "Promoted @bash0816/codex-termux@${VER} -> ${NPM_TAG}"
 
-      - name: Verify registry publication
+      - name: Verify registry promotion
         run: |
           set -eu
           VER="${{ inputs.version }}"
-          published=$(npm view "@bash0816/codex-termux@${VER}" version 2>/dev/null || echo "")
-          if [ "$published" != "$VER" ]; then
-            echo "ERROR: registry verification failed" >&2
+          NPM_TAG="${{ inputs.npm_tag || 'latest' }}"
+          promoted=$(npm view "@bash0816/codex-termux" "dist-tags.${NPM_TAG}" 2>/dev/null || echo "")
+          if [ "$promoted" != "$VER" ]; then
+            echo "ERROR: dist-tag ${NPM_TAG} is ${promoted}, expected ${VER}" >&2
             exit 1
           fi
-          echo "Registry verified: @bash0816/codex-termux@${VER}"
+          echo "Registry verified: @bash0816/codex-termux@${NPM_TAG} = ${VER}"
 
       - name: Dispatch release-finalize
         run: |
