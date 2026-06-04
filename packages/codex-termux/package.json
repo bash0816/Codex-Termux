@@ -13,8 +13,7 @@
     "README.md",
     "bin/",
     "config/",
-    "lib/launcher.js",
-    "lib/check-updates.js"
+    "lib/"
   ],
   "engines": {
     "node": ">=18"
