@@ -98,9 +98,27 @@ jobs:
             console.log('tarball content check passed');
           "
 
-  publish:
+  preflight:
     if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
     needs: verify
+    runs-on: ubuntu-latest
+    # github.token has environments:read by default (GitHub Actions OIDC scope)
+    steps:
+      - name: Verify npm-publish environment has required reviewers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          reviewers=$(gh api repos/${{ github.repository }}/environments/npm-publish \
+            --jq '(.protection_rules // []) | map(select(.type=="required_reviewers")) | length')
+          if [ "$reviewers" -eq 0 ]; then
+            echo "::error::npm-publish environment has no required reviewers configured. Set up reviewer at: Settings > Environments > npm-publish"
+            exit 1
+          fi
+          echo "npm-publish environment reviewer check passed (count: ${reviewers})"
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
+    needs: preflight
     runs-on: ubuntu-latest
     environment: npm-publish
     permissions:
