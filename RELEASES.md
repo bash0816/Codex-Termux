@@ -11,15 +11,15 @@ codex --version
 
 ## 0.133.0-1 — 2026-06-05
 
-Wrapper patch release on top of upstream openai/codex 0.133.0.
+Wrapper patch release on top of upstream openai/codex 0.133.0 binary.
 
-**This is the recommended release.** It fixes the `lock() not supported` crash on Android that prevents `codex exec` from running ([openai/codex#26277](https://github.com/openai/codex/issues/26277)).
+### What's fixed (wrapper layer)
 
-### What's fixed
+- **LD_PRELOAD flock shim** — Adds `libflock_noop.so` via `LD_PRELOAD` as a runtime safety net for any remaining `flock(2)` calls on Android. The underlying 0.133.0 binary already has compile-time `#[cfg(not(target_os = "android"))]` guards at the three affected locations.
+- **Spurious update notifications suppressed** — Passes `-c check_for_update_on_startup=false` to the binary to prevent noise from stale version cache.
+- **Stale temp directory cleanup** — Cleans up `~/.codex/tmp/arg0/codex-arg0-*` directories older than 7 days on startup.
 
-- **`codex exec` crash on Android** — Applied patches at 3 locations in `arg0/src/lib.rs`, `core/src/installation_id.rs`, and `app-server-transport/src/transport/unix_socket.rs` to guard `lock()` / `try_lock()` calls with `#[cfg(not(target_os = "android"))]`. The upstream fix is pending in [openai/codex#26277](https://github.com/openai/codex/issues/26277).
-- **Spurious update notifications suppressed** — The launcher now passes `-c check_for_update_on_startup=false` to prevent noise from stale version cache.
-- **Stale temp directory cleanup** — Startup cleans up `~/.codex/tmp/arg0/codex-arg0-*` directories older than 7 days.
+> The `lock() not supported` crash fix originates in the **0.133.0 binary** (build-time patches). 0.133.0-1 adds the LD_PRELOAD shim as an extra layer. See [openai/codex#26277](https://github.com/openai/codex/issues/26277).
 
 ### Install
 
