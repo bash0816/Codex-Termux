@@ -51,9 +51,9 @@ Error: failed to initialize in-process app-server client: lock() not supported
 ```
 
 This is caused by `flock(2)` being unsupported on the `/data` partition on Android.
-**This bug is patched in `@bash0816/codex-termux@0.133.0` and later.** The upstream fix is tracked in [openai/codex#26277](https://github.com/openai/codex/issues/26277).
+**This bug is patched in `@bash0816/codex-termux@0.133.0-2` and later.** The upstream fix is tracked in [openai/codex#26277](https://github.com/openai/codex/issues/26277).
 
-アップストリームの `codex exec` が Android で `lock() not supported` クラッシュする不具合は、`@bash0816/codex-termux@0.133.0` 以降で修正済みです。
+アップストリームの `codex exec` が Android で `lock() not supported` クラッシュする不具合は、`@bash0816/codex-termux@0.133.0-2` 以降で修正済みです。
 
 ## Do Not Use / 非推奨
 
