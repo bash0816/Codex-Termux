@@ -1,3 +1,14 @@
+## 0.133.0-2 — 2026-06-05
+
+fix: update --dry-run argv parse bug + doctor suppress newer version。upstream openai/codex@0.133.0 追従。
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.133.0-2
+codex --version
+```
+
 ## 0.133.0-1 — 2026-06-05
 
 Wrapper patch release on top of upstream openai/codex 0.133.0.
