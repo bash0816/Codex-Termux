@@ -1,6 +1,6 @@
 {
   "name": "@bash0816/codex-termux",
-  "version": "0.133.0-2",
+  "version": "0.133.0-3",
   "description": "Termux wrapper package for OpenAI Codex",
   "license": "Apache-2.0",
   "repository": {
