@@ -1,25 +1,17 @@
 ## 0.133.0-2 — 2026-06-05
 
-fix: update --dry-run argv parse bug + doctor suppress newer version。upstream openai/codex@0.133.0 追従。
+@bash0816/codex-termux@0.133.0-2
+Native Codex wrapper package for Termux (aarch64).
 
-### Install
+Termux (aarch64) 向け Codex ネイティブ wrapper package です。
 
-```sh
-npm install -g @bash0816/codex-termux@0.133.0-2
-codex --version
-```
+**Changes / 変更内容**
 
-## 0.133.0-1 — 2026-06-05
+Fix: codex update --dry-run argv parse bug — The `--dry-run` flag was incorrectly parsed as `currentVersion`, causing the command to show a downgrade install command instead of "Already on latest".
+codex update --dry-run の引数解析バグを修正。--dry-run が currentVersion として誤解析され、ダウングレードのインストールコマンドが表示される問題を修正しました。
 
-Wrapper patch release on top of upstream openai/codex 0.133.0 binary.
-
-### What's fixed (wrapper layer)
-
-- **LD_PRELOAD flock shim** — Adds `libflock_noop.so` via `LD_PRELOAD` as a runtime safety net for any remaining `flock(2)` calls on Android. The underlying 0.133.0 binary already has compile-time `#[cfg(not(target_os = "android"))]` guards at the three affected locations.
-- **Spurious update notifications suppressed** — Passes `-c check_for_update_on_startup=false` to the binary to prevent noise from stale version cache.
-- **Stale temp directory cleanup** — Cleans up `~/.codex/tmp/arg0/codex-arg0-*` directories older than 7 days on startup.
-
-> The `lock() not supported` crash fix originates in the **0.133.0 binary** (build-time patches). 0.133.0-1 adds the LD_PRELOAD shim as an extra layer. See [openai/codex#26277](https://github.com/openai/codex/issues/26277).
+Fix: codex doctor "newer version is available" suppressed — Upstream update notice was not filtered in `codex doctor` output on Termux.
+codex doctor の "newer version is available" 表示を抑制。upstream からの更新通知が Termux の doctor 出力に残る問題を修正しました。
 
 ### Install
 
@@ -30,15 +22,37 @@ codex --version
 
 ---
 
-## 0.133.0 — 2026-05-30
+## 0.133.0-1 — 2026-06-04
 
-Candidate release. Contains the `lock() not supported` fix but had spurious update notifications. Use 0.133.0-1 instead.
+@bash0816/codex-termux@0.133.0-1
+Native Codex wrapper package for Termux (aarch64).
+
+Termux (aarch64) 向け Codex ネイティブ wrapper package です。
+
+**Changes / 変更内容**
+
+Fix: codex exec crash on Android (lock() not supported) — The underlying 0.133.0 binary includes build-time patches for flock(2) being unsupported on the Android /data partition. Since 0.133.0 was a candidate release, 0.133.0-1 is the first stable release to deliver this fix. See [openai/codex#26277](https://github.com/openai/codex/issues/26277).
+Android で codex exec が lock() not supported でクラッシュする問題を修正。0.133.0 バイナリにビルド時パッチを適用済みです。0.133.0 は候補リリースだったため、0.133.0-1 が初めて安定版としてこの修正をユーザーに届けます。
+
+Fix: Spurious update notifications suppressed — Passes `-c check_for_update_on_startup=false` to suppress noise from stale version cache.
+更新通知の抑制。古いバージョンキャッシュによるノイズを抑えるため `-c check_for_update_on_startup=false` を渡します。
+
+Fix: Stale temp directory cleanup — Cleans up `~/.codex/tmp/arg0/codex-arg0-*` directories older than 7 days on startup.
+起動時に `~/.codex/tmp/arg0/codex-arg0-*` の古い一時ディレクトリ（7日超）を自動削除します。
 
 ### Install
 
 ```sh
-npm install -g @bash0816/codex-termux@0.133.0
+npm install -g @bash0816/codex-termux@latest
+codex --version
 ```
+
+---
+
+## 0.133.0 — 2026-06-04
+
+Candidate release only — not promoted to @latest. Use 0.133.0-1 instead.
+候補リリースのみ。@latest には昇格しませんでした。0.133.0-1 をお使いください。
 
 ---
 
