@@ -16,7 +16,9 @@ const localManifest = JSON.parse(
 );
 
 const mode = process.argv[2] || 'notify';
-const currentVersion = process.argv[3] || pkg.version;
+const currentVersion = (process.argv[3] && !process.argv[3].startsWith('-'))
+  ? process.argv[3]
+  : pkg.version;
 const dryRun = process.argv.includes('--dry-run');
 const cacheRoot =
   process.env.CODEX_TERMUX_PACKAGE_CACHE ||
