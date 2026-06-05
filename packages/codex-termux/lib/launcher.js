@@ -41,6 +41,8 @@ const DOCTOR_SUPPRESS_PATTERNS = [
   /npm update target could not be proven/,
   /update would target a different npm install/,
   /npm install -g @openai\/codex would update a different install/,
+  /latest version status\s+newer version is available/i,
+  /\bnewer version is available\b/i,
 ];
 
 function shouldSuppressDoctorLine(line) {
