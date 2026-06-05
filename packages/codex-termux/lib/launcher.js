@@ -31,6 +31,23 @@ function shouldSuppressStderrLine(line) {
   return line.trimEnd() === STALE_ARG0_WARNING;
 }
 
+// Lines in `codex doctor` stdout that reference @openai/codex update paths
+// are misleading on Termux — users must update via @bash0816/codex-termux.
+const DOCTOR_SUPPRESS_PATTERNS = [
+  /0\.\d+\.\d+ available \(current/,
+  /@openai\/codex/,
+  /CODEX_MANAGED_PACKAGE_ROOT/,
+  /npm-managed launch is missing package-root provenance/,
+  /npm update target could not be proven/,
+  /update would target a different npm install/,
+  /npm install -g @openai\/codex would update a different install/,
+];
+
+function shouldSuppressDoctorLine(line) {
+  const stripped = line.replace(/\x1b\[[0-9;]*m/g, '');
+  return DOCTOR_SUPPRESS_PATTERNS.some(p => p.test(stripped));
+}
+
 function readPackageRoot(request) {
   try {
     return dirname(require.resolve(request));
@@ -230,12 +247,28 @@ export function runLauncher({ entryName, argv }) {
   };
 
   const termuxOverrideArgs = ['-c', 'check_for_update_on_startup=false'];
+  const isDoctor = entryName !== 'codex-exec' && argv[0] === 'doctor';
   const child = spawn(targetBinary, [...termuxOverrideArgs, ...buildArgs(entryName, targetBinary, env, argv)], {
     env,
-    stdio: ['inherit', 'inherit', 'pipe']
+    stdio: ['inherit', isDoctor ? 'pipe' : 'inherit', 'pipe']
   });
 
+  let stdoutBuffer = '';
   let stderrBuffer = '';
+
+  if (isDoctor && child.stdout) {
+    child.stdout.on('data', (chunk) => {
+      stdoutBuffer += chunk.toString();
+      const lines = stdoutBuffer.split('\n');
+      stdoutBuffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!shouldSuppressDoctorLine(line)) {
+          process.stdout.write(`${line}\n`);
+        }
+      }
+    });
+  }
+
   child.stderr.on('data', (chunk) => {
     stderrBuffer += chunk.toString();
     const lines = stderrBuffer.split('\n');
@@ -253,7 +286,15 @@ export function runLauncher({ entryName, argv }) {
     process.exit(1);
   });
 
-  child.on('exit', (code, signal) => {
+  child.on('close', (code, signal) => {
+    if (isDoctor) {
+      if (stdoutBuffer && !shouldSuppressDoctorLine(stdoutBuffer)) {
+        process.stdout.write(stdoutBuffer);
+      }
+      process.stdout.write(
+        '\nNote: On Termux, update via: npm install -g @bash0816/codex-termux@latest\n'
+      );
+    }
     if (stderrBuffer && !shouldSuppressStderrLine(stderrBuffer)) {
       process.stderr.write(stderrBuffer);
     }

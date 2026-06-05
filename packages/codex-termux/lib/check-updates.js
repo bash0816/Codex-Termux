@@ -31,14 +31,23 @@ const manifestUrl =
   process.env.CODEX_TERMUX_MANIFEST_URL || localManifest.manifest_url;
 
 function compareVersions(a, b) {
-  const aParts = String(a).split('.').map(Number);
-  const bParts = String(b).split('.').map(Number);
-  const len = Math.max(aParts.length, bParts.length);
+  const parseVer = v => {
+    const str = String(v);
+    const dashIdx = str.indexOf('-');
+    if (dashIdx === -1) {
+      return { parts: str.split('.').map(Number), pre: -1 };
+    }
+    const pre = Number(str.slice(dashIdx + 1));
+    return { parts: str.slice(0, dashIdx).split('.').map(Number), pre: isNaN(pre) ? 0 : pre };
+  };
+  const av = parseVer(a);
+  const bv = parseVer(b);
+  const len = Math.max(av.parts.length, bv.parts.length);
   for (let i = 0; i < len; i++) {
-    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    const diff = (av.parts[i] || 0) - (bv.parts[i] || 0);
     if (diff !== 0) return diff;
   }
-  return 0;
+  return av.pre - bv.pre;
 }
 
 function readCache() {
