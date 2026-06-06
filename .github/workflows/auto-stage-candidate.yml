@@ -1,0 +1,141 @@
+name: Auto Stage Candidate
+
+on:
+  workflow_run:
+    workflows: ["external-build-android-aarch64"]
+    types: [completed]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  stage:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: dev
+          token: ${{ github.token }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Check candidate state
+        id: check_state
+        run: |
+          set -eu
+          state=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).candidate_state_status")
+          if [ "$state" = "codex_build_dispatched" ]; then
+            echo "should_stage=true" >> "$GITHUB_OUTPUT"
+            echo "Candidate state OK: $state"
+          else
+            echo "should_stage=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: candidate state is '$state', expected 'codex_build_dispatched'"
+          fi
+
+      - name: Download artifact
+        if: steps.check_state.outputs.should_stage == 'true'
+        env:
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -eu
+          mkdir -p /tmp/codex-artifact
+          gh run download "$WORKFLOW_RUN_ID" \
+            --repo bash0816/Codex-Termux \
+            --name "codex-external-android-aarch64-${WORKFLOW_RUN_ID}" \
+            --dir /tmp/codex-artifact
+          echo "ARTIFACT_DIR=/tmp/codex-artifact" >> "$GITHUB_ENV"
+
+      - name: Verify and extract artifact metadata
+        id: artifact
+        if: steps.check_state.outputs.should_stage == 'true'
+        env:
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -eu
+          MANIFEST_FILE="$ARTIFACT_DIR/manifest.json"
+
+          source_repo=$(node -p "JSON.parse(require('fs').readFileSync('${MANIFEST_FILE}','utf8')).source.repository")
+          source_ref=$(node -p "JSON.parse(require('fs').readFileSync('${MANIFEST_FILE}','utf8')).source.ref")
+          source_sha=$(node -p "JSON.parse(require('fs').readFileSync('${MANIFEST_FILE}','utf8')).source.sha")
+          manifest_run_id=$(node -p "JSON.parse(require('fs').readFileSync('${MANIFEST_FILE}','utf8')).workflow.run_id")
+
+          if [ "$source_repo" != "openai/codex" ]; then
+            echo "ERROR: unexpected source.repository: $source_repo" >&2
+            exit 1
+          fi
+          if [ "$manifest_run_id" != "$WORKFLOW_RUN_ID" ]; then
+            echo "ERROR: manifest run_id $manifest_run_id != event run_id $WORKFLOW_RUN_ID" >&2
+            exit 1
+          fi
+
+          ver="${source_ref#rust-v}"
+          echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "ERROR: unexpected source.ref format: $source_ref" >&2
+            exit 1
+          }
+
+          candidate_ver=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_candidate_version")
+          if [ "$ver" != "$candidate_ver" ]; then
+            echo "ERROR: artifact version $ver != manifest candidate $candidate_ver" >&2
+            exit 1
+          fi
+
+          {
+            echo "ver=$ver"
+            echo "source_ref=$source_ref"
+            echo "source_sha=$source_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "Verified: codex $ver from openai/codex ($source_ref)"
+
+      - name: Update manifest for candidate publish
+        if: steps.check_state.outputs.should_stage == 'true'
+        env:
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_REF: ${{ steps.artifact.outputs.source_ref }}
+        run: |
+          set -eu
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = 'config/codex-termux-release-manifest.json';
+          const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+          m.build_run_id = String(process.env.BUILD_RUN_ID);
+          m.source_ref = process.env.SOURCE_REF;
+          m.candidate_state_status = 'ready_to_publish';
+          m.canonical_package_status = 'ready_to_publish';
+          m.public_distribution_status = 'staged_for_publish';
+          m.updated_at = new Date().toISOString();
+          fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+          console.log('manifest updated: candidate ready_to_publish');
+          NODE
+
+      - name: Commit and push to staging
+        if: steps.check_state.outputs.should_stage == 'true'
+        run: |
+          set -eu
+          VER="${{ steps.artifact.outputs.ver }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/codex-termux-release-manifest.json
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "stage: codex ${VER} ready_to_publish (build run ${RUN_ID})"
+          git push origin HEAD:staging
+          echo "Pushed candidate manifest to staging branch"
+
+      - name: Dispatch candidate publish
+        if: steps.check_state.outputs.should_stage == 'true'
+        run: |
+          set -eu
+          VER="${{ steps.artifact.outputs.ver }}"
+          gh workflow run npm-package.yml \
+            --repo bash0816/Codex-Termux \
+            --ref staging \
+            --field publish=true \
+            --field npm_tag=candidate
+          echo "Candidate publish dispatched for $VER (npm-publish environment approval required)"
