@@ -38,11 +38,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-rusty-v8-android-${{ inputs.v8_version }}
+  cancel-in-progress: false
+
 jobs:
   release:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -307,6 +312,16 @@ jobs:
             "${ARTIFACTS_DIR}/src_binding_release_${ANDROID_TARGET}.rs" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
+
+      - name: Dispatch codex-version-watch (v8 resume)
+        if: steps.check_release.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh workflow run codex-version-watch.yml \
+            --repo bash0816/Codex-Termux
+          echo "codex-version-watch dispatched for v8 resume (v8=$V8_VERSION)"
 
       - name: Update android-artifacts.toml with self-built checksums
         if: steps.check_release.outputs.exists != 'true'

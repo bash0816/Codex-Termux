@@ -57,13 +57,18 @@ jobs:
           branch="automation/docs-${VER}"
           git checkout -b "$branch"
 
-          sed -i "s/codex-termux@[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/codex-termux@${VER}/g" README.md || true
+          if grep -qE "codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?" README.md; then
+            sed -i -E "s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?|codex-termux@${VER}|g" README.md
+            echo "README version references updated to $VER"
+          else
+            echo "WARNING: no versioned codex-termux@ reference found in README.md"
+          fi
 
-          date_str=$(date -u +%Y-%m-%d)
+          date_str=$(TZ=Asia/Tokyo date +%Y-%m-%d)
           notes="$NOTES"
           [ -z "$notes" ] && notes="upstream openai/codex@${VER} 追従。"
           entry="## ${VER} — ${date_str}\n\n${notes}\n\n### Install\n\n\`\`\`sh\nnpm install -g @bash0816/codex-termux@${VER}\ncodex --version\n\`\`\`\n\n"
-          if [ -f RELEASES.md ] && grep -qF "## ${VER}" RELEASES.md; then
+          if [ -f RELEASES.md ] && grep -qE "^## ${VER}([[:space:]]|$)" RELEASES.md; then
             echo "RELEASES.md already has ${VER} entry"
           else
             printf "%b" "${entry}" > /tmp/new_entry.md
