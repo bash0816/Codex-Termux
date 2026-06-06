@@ -86,9 +86,11 @@ jobs:
             exit 1
           fi
 
-          echo "ver=$ver" >> "$GITHUB_OUTPUT"
-          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
-          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "ver=$ver"
+            echo "source_ref=$source_ref"
+            echo "source_sha=$source_sha"
+          } >> "$GITHUB_OUTPUT"
           echo "Verified: codex $ver from openai/codex ($source_ref)"
 
       - name: Update manifest for candidate publish
