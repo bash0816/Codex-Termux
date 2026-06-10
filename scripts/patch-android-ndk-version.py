@@ -23,11 +23,17 @@ def patch_android_ndk_version(path: Path, ndk_version: str) -> bool:
         f"}}{newline}{newline}",
     )
 
-    import_index = text.find("import ")
-    if import_index >= 0:
-        text = f"{text[:import_index]}{''.join(block)}{text[import_index:]}"
-    else:
-        text = f"{''.join(block)}{text}"
+    # Insert after copyright header (leading # comment lines and blank lines),
+    # but before any GN code. declare_args() must be at top-level scope.
+    lines = text.splitlines(keepends=True)
+    insert_line = 0
+    for i, line in enumerate(lines):
+        if line.startswith('#') or line.strip() == '':
+            insert_line = i + 1
+        else:
+            break
+    insert_pos = sum(len(l) for l in lines[:insert_line])
+    text = text[:insert_pos] + ''.join(block) + text[insert_pos:]
 
     path.write_text(text, newline="")
     return True
