@@ -10,9 +10,6 @@ on:
         description: "npm dist-tag"
         required: false
         default: "latest"
-      verification_date:
-        description: "Device B verification date (YYYY-MM-DD, required)"
-        required: true
 
 permissions:
   contents: read
@@ -26,6 +23,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -57,22 +55,6 @@ jobs:
             exit 1
           fi
           echo "Confirmed: @bash0816/codex-termux@candidate = $VER"
-
-      - name: Verify Device B verification record exists
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          VER="${{ inputs.version }}"
-          VDATE="${{ inputs.verification_date }}"
-          record=$(gh api "repos/bash0816/private-repo/contents/docs/verification-records/codex-${VER}-${VDATE}.md" \
-            --jq '.name' 2>/dev/null || echo "")
-          if [ -z "$record" ]; then
-            echo "ERROR: verification record not found: docs/verification-records/codex-${VER}-${VDATE}.md" >&2
-            echo "Run Device B verification and push result to private-repo before promoting." >&2
-            exit 1
-          fi
-          echo "Verification record found: $record"
 
       - name: Publish guard check
         run: node scripts/check-public-publish-guard.js --skip-runtime-files

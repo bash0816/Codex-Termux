@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: bash0816/Codex-Termux
-          ref: dev
+          ref: main
           fetch-depth: 0
           token: ${{ github.token }}
 
@@ -132,7 +132,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$branch" origin/dev
+          git checkout -B "$branch" origin/main
           node scripts/update-codex-candidate-manifest.js "$CANDIDATE_VERSION" "$candidate_state"
           git add config/codex-termux-release-manifest.json
           git commit -m "Track Codex ${CANDIDATE_VERSION} candidate"
@@ -166,11 +166,11 @@ jobs:
             candidate_state="v8_build_dispatched"
             build_status="v8 build dispatched"
           fi
-          existing=$(gh pr list --repo bash0816/Codex-Termux --base dev --head "$branch" --json number --jq 'length')
+          existing=$(gh pr list --repo bash0816/Codex-Termux --base main --head "$branch" --json number --jq 'length')
           if [ "$existing" -eq 0 ]; then
             gh pr create \
               --repo bash0816/Codex-Termux \
-              --base dev \
+              --base main \
               --head "$branch" \
               --title "Track Codex ${CANDIDATE_VERSION} candidate" \
               --body "Automated upstream Codex intake.\n\n- upstream latest: ${CANDIDATE_VERSION}\n- ${build_status}\n- manifest candidate state: ${candidate_state}"
