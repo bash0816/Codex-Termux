@@ -246,6 +246,13 @@ jobs:
             python3 "$GITHUB_WORKSPACE/scripts/patch-bindgen-filter.py" "$FILTER"
           fi
 
+          # Patch android_ndk_version in config.gni (required for v8 149+)
+          CONFIG_GNI="$RV8_SRC/build/config/android/config.gni"
+          if [ -f "$CONFIG_GNI" ]; then
+            NDK_VER="${NDK_REVISION%c}"
+            python3 "$GITHUB_WORKSPACE/scripts/patch-android-ndk-version.py" "$CONFIG_GNI" "$NDK_VER"
+          fi
+
           # Build using rusty_v8 source via [patch.crates-io]
           build_dir="$RUNNER_TEMP/v8-build-crate"
           mkdir -p "$build_dir/src"
