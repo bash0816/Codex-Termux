@@ -171,7 +171,7 @@ jobs:
             echo "AR_aarch64_linux_android=$toolchain/llvm-ar"
             echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib"
             echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
-            echo "EXTRA_GN_ARGS=android_ndk_root=\"$ndk_dir\" android_ndk_api_level=${ANDROID_API_LEVEL}"
+            echo "EXTRA_GN_ARGS=android_ndk_root=\"$ndk_dir\" android_ndk_api_level=${ANDROID_API_LEVEL} android_ndk_version=\"r27\""
             sysroot="$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
             echo "BINDGEN_EXTRA_CLANG_ARGS=--target=aarch64-linux-android${ANDROID_API_LEVEL} --sysroot=$sysroot -I$sysroot/usr/include -I$sysroot/usr/include/aarch64-linux-android"
           } >> "$GITHUB_ENV"
