@@ -171,7 +171,7 @@ jobs:
             echo "AR_aarch64_linux_android=$toolchain/llvm-ar"
             echo "RANLIB_aarch64_linux_android=$toolchain/llvm-ranlib"
             echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
-            echo "EXTRA_GN_ARGS=android_ndk_root=\"$ndk_dir\" android_ndk_api_level=${ANDROID_API_LEVEL}"
+            echo "EXTRA_GN_ARGS=android_ndk_api_level=${ANDROID_API_LEVEL}"
             sysroot="$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
             echo "BINDGEN_EXTRA_CLANG_ARGS=--target=aarch64-linux-android${ANDROID_API_LEVEL} --sysroot=$sysroot -I$sysroot/usr/include -I$sysroot/usr/include/aarch64-linux-android"
           } >> "$GITHUB_ENV"
@@ -231,6 +231,13 @@ jobs:
           test -f "$RV8_SRC/v8/gni/v8.gni" || { echo "ERROR: v8/gni/v8.gni missing" >&2; exit 1; }
           test -f "$RV8_SRC/v8/DEPS"        || { echo "ERROR: v8/DEPS missing" >&2; exit 1; }
           echo "rusty_v8 source ready: $(du -sh "$RV8_SRC" | cut -f1)"
+
+          # Symlink NDK to expected default paths for v8 149+ build system
+          mkdir -p "$RV8_SRC/third_party/android_toolchain"
+          ln -sfn "$ANDROID_NDK_ROOT" "$RV8_SRC/third_party/android_toolchain/ndk"
+          ln -sfn "$ANDROID_NDK_ROOT" "$RV8_SRC/third_party/android_ndk"
+          test -d "$RV8_SRC/third_party/android_toolchain/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" || { echo "ERROR: NDK sysroot not found via symlink" >&2; exit 1; }
+          echo "NDK symlinked to third_party/android_toolchain/ndk and third_party/android_ndk"
 
           # Install host amd64 sysroot (required by sysroot.gni)
           if [ -f "$RV8_SRC/build/linux/sysroot_scripts/install-sysroot.py" ]; then
