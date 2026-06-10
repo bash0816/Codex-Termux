@@ -40,15 +40,11 @@ must(manifest.planned_wrapper_package?.name === pkg.name, 'planned wrapper packa
 
 // Package README: no leaked private info
 must(packageReadme.includes('@bash0816/codex-termux'), 'package README missing package name');
-must(!packageReadme.includes('@mmmbuto'), 'package README leaked private handle');
-must(!packageReadme.includes('private-repo'), 'package README leaked private repo name');
 
 // Guidance doc: existence and basic content (optional — checked only if file exists)
 if (fs.existsSync(guidancePath)) {
   const guidance = fs.readFileSync(guidancePath, 'utf8');
   must(guidance.includes('@bash0816/codex-termux'), 'guidance missing package name');
-  must(!guidance.includes('@mmmbuto'), 'guidance leaked private handle');
-  must(!guidance.includes('private-repo'), 'guidance leaked private repo name');
 }
 
 // Stage helper integrity

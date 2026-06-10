@@ -48,7 +48,7 @@ jobs:
         with:
           token: ${{ github.token }}
 
-      - name: Update README and RELEASES.md on feature branch then auto-merge
+      - name: Update README and RELEASES.md on feature branch then open PR
         run: |
           set -eu
           git config user.name "github-actions[bot]"
@@ -87,7 +87,7 @@ jobs:
           fi
 
           git commit -m "docs: update README and RELEASES for ${VER}"
-          git push --force-with-lease origin "$branch" || git push --force origin "$branch"
+          git push --force-with-lease origin "$branch"
 
           existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo "")
           if [ -n "$existing_pr" ]; then
@@ -96,12 +96,7 @@ jobs:
           else
             pr_url=$(gh pr create --base main --head "$branch" \
               --title "docs: update README and RELEASES for ${VER}" \
-              --body "Automated docs update for @bash0816/codex-termux@${VER}. Auto-merge.")
+              --body "Automated docs update for @bash0816/codex-termux@${VER}. Open PR only.")
             pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
             echo "PR created: $pr_url"
           fi
-
-          gh pr merge "$pr_number" --merge --delete-branch=false
-          echo "PR #${pr_number} merged to main"
-          git fetch origin main
-          echo "main updated"
