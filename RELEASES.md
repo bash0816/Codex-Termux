@@ -1,3 +1,14 @@
+## 0.139.0 — 2026-06-12
+
+upstream openai/codex@0.139.0 追従。
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.139.0
+codex --version
+```
+
 ## 0.137.0 — 2026-06-06
 
 Native Codex wrapper for Termux (aarch64). Upstream openai/codex 0.137.0 with Android lock patches (unix_socket.rs, installation_id.rs, arg0/lib.rs) and 8MiB stack size fix.
