@@ -1,6 +1,6 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "published",
+  "canonical_package_status": "ready_to_publish",
   "public_distribution_status": "publicly_available",
   "support_status": "public_supported",
   "latest_audited_version": "0.139.0",
