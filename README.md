@@ -6,7 +6,7 @@ Termux 向け Codex ネイティブ wrapper package です。
 
 ## Status / 状態
 
-- version: `0.137.0` (latest)
+- version: `0.139.0` (latest)
 - package: `@bash0816/codex-termux`
 - TUI: **available** ✅
 - `codex exec`: **available** ✅
