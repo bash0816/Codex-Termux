@@ -111,6 +111,23 @@ jobs:
             echo "PR created: $pr_url"
           fi
 
+      - name: Create GitHub Release
+        run: |
+          set -eu
+          if gh release view "v${VER}" --repo bash0816/Codex-Termux > /dev/null 2>&1; then
+            echo "GitHub Release v${VER} already exists, skipping"
+          else
+            notes="${NOTES:-}"
+            [ -z "$notes" ] && notes="upstream openai/codex@${VER} 追従。"
+            date_str=$(TZ=Asia/Tokyo date +%Y-%m-%d)
+            gh release create "v${VER}" \
+              --repo bash0816/Codex-Termux \
+              --title "codex-termux v${VER}" \
+              --latest \
+              --notes "$(printf '%s\n\n## Install\n\n```sh\nnpm install -g @bash0816/codex-termux@%s\ncodex --version\n```\n\n## Update\n\n```sh\ncodex update\n```' "$notes" "$VER")"
+            echo "GitHub Release v${VER} created"
+          fi
+
       - name: Enable auto-merge on staging PR
         run: |
           set -eu
