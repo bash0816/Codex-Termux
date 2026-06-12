@@ -68,6 +68,11 @@ jobs:
           VER="${{ inputs.version }}"
           npm dist-tag add "@bash0816/codex-termux@${VER}" "${NPM_TAG}"
           echo "Promoted @bash0816/codex-termux@${VER} -> ${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            PREV=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).previous_stable_version")
+            npm dist-tag add "@bash0816/codex-termux@${PREV}" candidate
+            echo "candidate rolled back: @bash0816/codex-termux@candidate -> ${PREV}"
+          fi
 
       - name: Verify registry promotion
         run: |
@@ -87,9 +92,15 @@ jobs:
           exit 1
 
       - name: Dispatch release-finalize
+        if: inputs.npm_tag == 'latest' || inputs.npm_tag == ''
         run: |
           set -eu
           VER="${{ inputs.version }}"
+          actual=$(npm view "@bash0816/codex-termux" "dist-tags.latest" 2>/dev/null || echo "")
+          if [ "$actual" != "$VER" ]; then
+            echo "ERROR: dist-tags.latest is $actual, not $VER" >&2
+            exit 1
+          fi
           gh workflow run release-finalize.yml \
             --repo bash0816/Codex-Termux \
             --field version="${VER}"
