@@ -92,9 +92,15 @@ jobs:
           exit 1
 
       - name: Dispatch release-finalize
+        if: inputs.npm_tag == 'latest' || inputs.npm_tag == ''
         run: |
           set -eu
           VER="${{ inputs.version }}"
+          actual=$(npm view "@bash0816/codex-termux" "dist-tags.latest" 2>/dev/null || echo "")
+          if [ "$actual" != "$VER" ]; then
+            echo "ERROR: dist-tags.latest is $actual, not $VER" >&2
+            exit 1
+          fi
           gh workflow run release-finalize.yml \
             --repo bash0816/Codex-Termux \
             --field version="${VER}"

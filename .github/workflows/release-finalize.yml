@@ -11,6 +11,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: release-finalize-${{ inputs.version }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -35,7 +39,7 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Verify npm publish exists
+      - name: Verify npm latest
         run: |
           set -eu
           published=$(npm view "@bash0816/codex-termux@${VER}" version 2>/dev/null || echo "")
@@ -43,6 +47,12 @@ jobs:
             echo "ERROR: @bash0816/codex-termux@${VER} not published on npm" >&2
             exit 1
           fi
+          actual_latest=$(npm view "@bash0816/codex-termux" "dist-tags.latest" 2>/dev/null || echo "")
+          if [ "$actual_latest" != "$VER" ]; then
+            echo "ERROR: dist-tags.latest=$actual_latest, expected $VER" >&2
+            exit 1
+          fi
+          echo "npm latest confirmed: $VER"
 
       - uses: actions/checkout@v6
         with:
@@ -99,4 +109,51 @@ jobs:
               --body "Automated docs update for @bash0816/codex-termux@${VER}. Open PR only.")
             pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
             echo "PR created: $pr_url"
+          fi
+
+      - name: Enable auto-merge on staging PR
+        run: |
+          set -eu
+          count=$(gh pr list --repo bash0816/Codex-Termux \
+            --base main --head staging --state open \
+            --json number --jq 'length')
+          if [ "$count" -eq 0 ]; then
+            echo "ERROR: no staging->main PR found for ${VER}" >&2; exit 1
+          elif [ "$count" -ne 1 ]; then
+            echo "ERROR: expected 1 staging PR, got $count" >&2; exit 1
+          fi
+          pr_num=$(gh pr list --repo bash0816/Codex-Termux \
+            --base main --head staging --state open \
+            --json number --jq '.[0].number')
+          gh pr merge "$pr_num" --auto --merge \
+            --subject "release: merge staging for codex-termux ${VER}"
+          echo "Auto-merge enabled on staging PR #${pr_num}"
+
+      - name: Enable auto-merge on docs PR
+        run: |
+          set -eu
+          branch="automation/docs-${VER}"
+          pr_num=$(gh pr list --repo bash0816/Codex-Termux \
+            --base main --head "$branch" --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$pr_num" ]; then
+            gh pr merge "$pr_num" --auto --squash --delete-branch
+            echo "Auto-merge enabled on docs PR #${pr_num}"
+          else
+            echo "No open docs PR found, skipping"
+          fi
+
+      - name: Close candidate tracking PR
+        run: |
+          set -eu
+          branch="automation/codex-${VER}"
+          pr_num=$(gh pr list --repo bash0816/Codex-Termux \
+            --base main --head "$branch" --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$pr_num" ]; then
+            gh pr close "$pr_num" \
+              --comment "Released as @bash0816/codex-termux@${VER} (latest). Auto-closing."
+            echo "Closed candidate PR #${pr_num}"
+          else
+            echo "No open candidate PR found"
           fi
