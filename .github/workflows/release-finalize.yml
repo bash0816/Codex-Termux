@@ -67,12 +67,9 @@ jobs:
           branch="automation/docs-${VER}"
           git checkout -b "$branch"
 
-          if grep -qE "codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?" README.md; then
-            sed -i -E "s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?|codex-termux@${VER}|g" README.md
-            echo "README version references updated to $VER"
-          else
-            echo "WARNING: no versioned codex-termux@ reference found in README.md"
-          fi
+          sed -i -E "s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?|codex-termux@${VER}|g" README.md
+          sed -i -E "s|version: \`[0-9]+\.[0-9]+\.[0-9]+\` \(latest\)|version: \`${VER}\` (latest)|" README.md
+          echo "README updated to $VER"
 
           date_str=$(TZ=Asia/Tokyo date +%Y-%m-%d)
           notes="$NOTES"
