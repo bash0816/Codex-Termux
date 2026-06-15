@@ -234,8 +234,8 @@ jobs:
           # Patch: extend voice/audio_device cfg to exclude Android (tui/src/lib.rs)
           # Note: upstream removed audio_device/voice modules entirely in 0.140.0+ (cpal/oboe deps also gone)
           lib_rs="source-repo/codex-rs/tui/src/lib.rs"
-          not_linux_count=$(grep -cF '#[cfg(not(target_os = "linux"))]' "$lib_rs" || echo 0)
-          linux_count=$(grep -cF '#[cfg(target_os = "linux")]' "$lib_rs" || echo 0)
+          not_linux_count=$(grep -cF '#[cfg(not(target_os = "linux"))]' "$lib_rs"  || true)
+          linux_count=$(grep -cF '#[cfg(target_os = "linux")]' "$lib_rs"  || true)
           if [ "$not_linux_count" -gt 0 ] || [ "$linux_count" -gt 0 ]; then
             test "$not_linux_count" -eq 2
             test "$linux_count" -eq 2
