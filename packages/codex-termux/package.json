@@ -2,7 +2,7 @@
   "name": "@bash0816/codex-termux",
   "version": "0.140.0",
   "description": "Termux wrapper package for OpenAI Codex",
-  "license": "Apache-2.0",
+  "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "https://github.com/bash0816/Codex-Termux.git"
@@ -15,6 +15,9 @@
   },
   "files": [
     "README.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
+    "THIRD-PARTY-LICENSES/",
     "bin/",
     "config/",
     "lib/"

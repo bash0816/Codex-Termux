@@ -90,7 +90,8 @@ for staged in "$BIN_DIR/codex.bin" "$BIN_DIR/codex-exec.bin" "$BIN_DIR/libc++_sh
   fi
 done
 
-for required in manifest.json sha256sums.txt codex codex-exec libc++_shared.so; do
+for required in manifest.json sha256sums.txt codex codex-exec libc++_shared.so \
+                PATCHES.md LLVM-LICENSE.TXT dependency-licenses.json; do
   if [ ! -e "$ARTIFACT_DIR/$required" ]; then
     fail "missing artifact: $ARTIFACT_DIR/$required" 1
   fi
@@ -175,5 +176,12 @@ STAGED_LIBCXX_SHA=$(sha256sum "$BIN_DIR/libc++_shared.so" | awk '{print $1}')
 [ "$ARTIFACT_LIBCXX_SHA" = "$STAGED_LIBCXX_SHA" ] || fail "staged libc++_shared.so checksum mismatch" 12
 
 STAGED=1
+
+# Copy license compliance files from artifact into package
+LICENSE_DIR="$PACKAGE_ROOT/THIRD-PARTY-LICENSES"
+mkdir -p "$LICENSE_DIR"
+cp "$ARTIFACT_DIR/PATCHES.md"               "$LICENSE_DIR/PATCHES.md"
+cp "$ARTIFACT_DIR/LLVM-LICENSE.TXT"         "$LICENSE_DIR/LLVM-LICENSE.TXT"
+cp "$ARTIFACT_DIR/dependency-licenses.json" "$LICENSE_DIR/dependency-licenses.json"
 
 echo "staged public Android runtime into $BIN_DIR" >&2

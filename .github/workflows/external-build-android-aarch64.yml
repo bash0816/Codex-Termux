@@ -533,6 +533,62 @@ jobs:
           RUSTY_V8_RELEASE_TAG="$RUSTY_V8_RELEASE_TAG" \
           bash host-repo/scripts/write-external-build-manifest.sh "$BUNDLE_DIR"
 
+      - name: Generate license compliance files
+        run: |
+          set -eu
+
+          # B1: PATCHES.md — exact source diffs applied before build
+          {
+            echo "# Applied Android Patches"
+            echo ""
+            echo "Source repository: ${{ inputs.source_repository }}"
+            echo "Source ref: ${{ inputs.source_ref }}"
+            echo "Source SHA: $(git -C source-repo rev-parse HEAD)"
+            echo "Built by: ${GITHUB_REPOSITORY} @ ${GITHUB_REF_NAME} ($(git -C host-repo rev-parse HEAD))"
+            echo "Build timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "## Modified Files (stat)"
+            git -C source-repo diff --stat HEAD || echo "(no modifications — upstream already included fix)"
+            echo ""
+            echo "## Full Diff"
+            git -C source-repo diff HEAD || echo "(no modifications)"
+          } > "$BUNDLE_DIR/PATCHES.md"
+
+          # B2: LLVM-LICENSE.TXT — from NDK toolchain (Apache-2.0 WITH LLVM-exception)
+          LLVM_NOTICE=""
+          for candidate in \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang"/*/NOTICE \
+            "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE; do
+            if [ -f "$candidate" ]; then
+              LLVM_NOTICE="$candidate"
+              break
+            fi
+          done
+          if [ -n "$LLVM_NOTICE" ]; then
+            echo "Using NDK LLVM NOTICE: $LLVM_NOTICE"
+            cp "$LLVM_NOTICE" "$BUNDLE_DIR/LLVM-LICENSE.TXT"
+            if ! grep -q "LLVM-exception" "$BUNDLE_DIR/LLVM-LICENSE.TXT"; then
+              echo "ERROR: LLVM-exception clause not found in $LLVM_NOTICE" >&2
+              echo "       Apache-2.0 WITH LLVM-exception requires the exception text." >&2
+              exit 1
+            fi
+            echo "Verified: LLVM-exception clause present in LLVM-LICENSE.TXT"
+          else
+            echo "ERROR: NDK clang NOTICE not found at expected paths" >&2
+            exit 1
+          fi
+
+          # B3: dependency-licenses.json — cargo-license for all transitive deps
+          cd source-repo/codex-rs
+          cargo install cargo-license --locked --quiet
+          cargo license \
+            --avoid-dev-deps \
+            --json \
+            > "$BUNDLE_DIR/dependency-licenses.json"
+          ENTRY_COUNT=$(python3 -c "import json; d=json.load(open('$BUNDLE_DIR/dependency-licenses.json')); print(len(d))")
+          echo "Generated dependency-licenses.json (${ENTRY_COUNT} entries)"
+
       - name: Verify bundle contents
         run: |
           set -eu
