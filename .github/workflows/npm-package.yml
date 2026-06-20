@@ -91,7 +91,9 @@ jobs:
 
             const unexpected = files.filter(f => {
               if (f === 'package.json' || f === 'README.md') return false;
+              if (f === 'LICENSE' || f === 'THIRD-PARTY-NOTICES.md') return false;
               if (f.startsWith('bin/') || f.startsWith('lib/') || f.startsWith('config/')) return false;
+              if (f.startsWith('THIRD-PARTY-LICENSES/')) return false;
               return true;
             });
             if (unexpected.length) throw new Error('unexpected files in tarball: ' + unexpected.join(', '));
