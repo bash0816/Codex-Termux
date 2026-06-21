@@ -555,6 +555,15 @@ jobs:
           } > "$BUNDLE_DIR/PATCHES.md"
 
           # B2: LLVM-LICENSE.TXT — from NDK toolchain (Apache-2.0 WITH LLVM-exception)
+          echo "=== NDK LLVM NOTICE candidates ==="
+          for p in \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/NOTICE" \
+            "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/NOTICE" \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang"/*/NOTICE \
+            "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE; do
+            [ -f "$p" ] && echo "  found: $p (has LLVM-exception: $(grep -q 'LLVM-exception' "$p" && echo yes || echo no))"
+          done
           LLVM_NOTICE=""
           for candidate in \
             "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/NOTICE" \
@@ -562,22 +571,23 @@ jobs:
             "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE \
             "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang"/*/NOTICE \
             "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE; do
-            if [ -f "$candidate" ]; then
+            if [ -f "$candidate" ] && grep -q "LLVM-exception" "$candidate"; then
               LLVM_NOTICE="$candidate"
               break
             fi
           done
+          if [ -z "$LLVM_NOTICE" ]; then
+            echo "Glob search found no match; trying find-based fallback..."
+            NDK_SEARCH="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
+            LLVM_NOTICE=$(find "$NDK_SEARCH" -path "*/toolchains/llvm*" -name "NOTICE" -type f 2>/dev/null \
+              | xargs grep -l "LLVM-exception" 2>/dev/null | head -1 || true)
+          fi
           if [ -n "$LLVM_NOTICE" ]; then
             echo "Using NDK LLVM NOTICE: $LLVM_NOTICE"
             cp "$LLVM_NOTICE" "$BUNDLE_DIR/LLVM-LICENSE.TXT"
-            if ! grep -q "LLVM-exception" "$BUNDLE_DIR/LLVM-LICENSE.TXT"; then
-              echo "ERROR: LLVM-exception clause not found in $LLVM_NOTICE" >&2
-              echo "       Apache-2.0 WITH LLVM-exception requires the exception text." >&2
-              exit 1
-            fi
             echo "Verified: LLVM-exception clause present in LLVM-LICENSE.TXT"
           else
-            echo "ERROR: NDK clang NOTICE not found at expected paths" >&2
+            echo "ERROR: NDK clang NOTICE not found (LLVM-exception clause missing in all candidates)" >&2
             exit 1
           fi
 
