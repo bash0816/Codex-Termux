@@ -557,6 +557,8 @@ jobs:
           # B2: LLVM-LICENSE.TXT — from NDK toolchain (Apache-2.0 WITH LLVM-exception)
           LLVM_NOTICE=""
           for candidate in \
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/NOTICE" \
+            "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/NOTICE" \
             "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE \
             "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang"/*/NOTICE \
             "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang"/*/NOTICE; do
