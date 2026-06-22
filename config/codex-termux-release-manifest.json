@@ -1,12 +1,12 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "building",
-  "public_distribution_status": "not_published",
+  "canonical_package_status": "ready_to_publish",
+  "public_distribution_status": "staged_for_publish",
   "support_status": "public_supported",
   "latest_audited_version": "0.140.0",
   "latest_candidate_version": "0.141.0",
   "previous_stable_version": "0.139.0",
-  "candidate_state": "building",
+  "candidate_state": "ready_to_publish",
   "candidate_state_status": "staged_for_publish",
   "audit_evidence_ref": "",
   "source_repo": "openai/codex",
@@ -39,5 +39,5 @@
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-06-16T00:00:00+09:00",
   "updated_at": "2026-06-20T00:00:00+09:00",
-  "build_run_id": "27903500076"
+  "build_run_id": "27938992694"
 }
