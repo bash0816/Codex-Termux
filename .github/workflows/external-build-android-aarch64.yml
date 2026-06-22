@@ -63,14 +63,14 @@ jobs:
           esac
 
       - name: Checkout source ref
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 1
           path: host-repo
 
       - name: Checkout build source repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.source_repository }}
           ref: ${{ inputs.source_ref }}
