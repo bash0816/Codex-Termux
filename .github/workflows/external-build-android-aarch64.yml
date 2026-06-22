@@ -505,6 +505,17 @@ jobs:
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-exec" "$BUNDLE_DIR/codex-exec"
           cp "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$BUNDLE_DIR/libc++_shared.so"
 
+          LLVM_STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test -x "$LLVM_STRIP" || { echo "ERROR: llvm-strip not found at $LLVM_STRIP" >&2; exit 1; }
+          for bin in codex codex-exec; do
+            before=$(wc -c < "$BUNDLE_DIR/$bin")
+            "$LLVM_STRIP" --strip-all "$BUNDLE_DIR/$bin"
+            after=$(wc -c < "$BUNDLE_DIR/$bin")
+            echo "stripped $bin: $before -> $after bytes"
+            file "$BUNDLE_DIR/$bin" | python3 -c "import sys; l=sys.stdin.read(); exit(0 if 'ARM aarch64' in l else 1)" \
+              || { echo "ERROR: $bin is not valid aarch64 ELF after strip" >&2; exit 1; }
+          done
+
           SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
           SOURCE_REPOSITORY_INPUT="${{ inputs.source_repository }}" \
           SOURCE_REF_INPUT="${{ inputs.source_ref }}" \
