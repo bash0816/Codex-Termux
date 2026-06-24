@@ -1,18 +1,37 @@
-# Codex Termux Release Guidance
+# 2026-05-03 Codex-Termux Release Guidance
 
-this repository is public. all content is visible to end users.
+## Status
 
-the package is published as @bash0816/codex-termux on npm.
+- this repository is public
+- the package is staged for publish review
+- public support remains withheld until publish completes
+- package name: `@bash0816/codex-termux`
+- latest audited version: `0.142.0`
+- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`
 
-public support is available for the published package via GitHub Issues.
+## Current Scope
+
+- package skeleton is in `packages/codex-termux`
+- CI currently covers:
+  - syntax check
+  - manifest / README drift check
+  - `npm pack --dry-run`
+- publish remains gated by manifest status and runtime staging
 
 ## Install
 
-```sh
-npm install -g @bash0816/codex-termux@latest
-```
+Public install guidance remains withheld.
 
-## Notes
+## Update
 
-- Do not commit build strategy, internal logs, or test infrastructure details to this repo.
-- Binary files (.bin, .so) are staged locally for publish only — not committed to git.
+Public update guidance remains withheld.
+
+Do not install the upstream `@openai/codex` package directly on Termux.
+
+## Rollback
+
+Rollback guidance will be published after the release gate passes.
+
+## Source Of Truth
+
+- `config/codex-termux-release-manifest.json`
