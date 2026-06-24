@@ -1,74 +1,62 @@
 # Codex-Termux
 
-Native Codex wrapper package for Termux.
+Codex wrapper package for Termux.
 
-Termux 向け Codex ネイティブ wrapper package です。
+Termux 向け Codex wrapper package です。
 
 ## Status / 状態
 
-- version: `0.141.0` (latest)
-- package: `@bash0816/codex-termux`
-- TUI: **available** ✅
-- `codex exec`: **available** ✅
+Public package release is staged for publish review.
+
+現在は public package の publish review 段階です。
+
+This repository is public, but install guidance remains withheld until publish completes.
+
+このリポジトリは public ですが、publish 完了まで install guidance は withheld のままです。
+
+Public support remains withheld until the publish gate passes.
+
+publish gate を通るまで public support は withheld のままです。
+
+## Manifest Snapshot / manifest スナップショット
+
+- Repository visibility: `public`
+- Canonical package name: `@bash0816/codex-termux`
+- Canonical package status: `ready_to_publish`
+- Public distribution status: `staged_for_publish`
+- Support status: `public_support_pending_publish`
+- Latest audited version: `0.142.0`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`
 
 ## Install / インストール
 
-```sh
-npm install -g @bash0816/codex-termux@latest
-codex --version
-```
+Public install guidance remains withheld.
 
-## Usage / 使い方
-
-```sh
-# Interactive TUI / 対話型 TUI
-codex
-
-# Non-interactive / 非対話
-codex exec "echo hello"
-```
+public install guidance は withheld のままです。
 
 ## Update / 更新
 
-```sh
-codex update
+Public update guidance remains withheld.
+
+public update guidance は withheld のままです。
+
+## Rollback / ロールバック
+
+Rollback guidance will be published after the release gate passes.
+
+rollback guidance は release gate 通過後に公開します。
+
+Package files:
+
+package files:
+
+```text
+packages/codex-termux
 ```
 
-Or / または:
+## Source Of Truth / 正本
 
-```sh
-npm install -g @bash0816/codex-termux@latest --force
-```
-
-## Known Issues / 既知の問題
-
-### `lock() not supported` on Android (Fixed in this package)
-
-Upstream openai/codex 0.133.0 has a bug where `codex exec` crashes on Android with:
-
-```
-Error: failed to initialize in-process app-server client: lock() not supported
-```
-
-This is caused by `flock(2)` being unsupported on the `/data` partition on Android.
-**This bug is patched in `@bash0816/codex-termux@0.141.0` and later.** The upstream fix is tracked in [openai/codex#26277](https://github.com/openai/codex/issues/26277).
-
-アップストリームの `codex exec` が Android で `lock() not supported` クラッシュする不具合は、`@bash0816/codex-termux@0.141.0` 以降で修正済みです。
-
-## Do Not Use / 非推奨
-
-Do not install the upstream package directly on Termux.
-
-Termux では upstream package を直接 install しないでください。
-
-```sh
-npm install -g @openai/codex@latest  # ← Do not use on Termux / Termux では使わないでください
-```
-
-## Previous Notices / 過去のお知らせ
-
-### v0.130.0 / v0.131.0 users
-
-v0.130.0 contains a binary bug. v0.131.0 has a broken `codex update` command. Both are fixed. Please update to latest.
-
-v0.130.0 にはバイナリの不具合、v0.131.0 は `codex update` の不具合があります。latest に更新してください。
+- release manifest:
+  - `config/codex-termux-release-manifest.json`
+- release guidance:
+  - `docs/20260503_codex-termux-release-guidance.md`
