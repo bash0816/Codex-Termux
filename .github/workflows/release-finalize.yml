@@ -119,7 +119,7 @@ jobs:
             --base main --head "$branch" --state open \
             --json number --jq '.[0].number // empty')
           if [ -n "$pr_num" ]; then
-            gh pr merge "$pr_num" --auto --squash --delete-branch
+            gh pr merge "$pr_num" --squash --delete-branch
             echo "Auto-merge enabled on docs PR #${pr_num}"
           else
             echo "No open docs PR found, skipping"
