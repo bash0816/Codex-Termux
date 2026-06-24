@@ -111,24 +111,6 @@ jobs:
             echo "PR created: $pr_url"
           fi
 
-      - name: Enable auto-merge on staging PR
-        run: |
-          set -eu
-          count=$(gh pr list --repo bash0816/Codex-Termux \
-            --base main --head staging --state open \
-            --json number --jq 'length')
-          if [ "$count" -eq 0 ]; then
-            echo "ERROR: no staging->main PR found for ${VER}" >&2; exit 1
-          elif [ "$count" -ne 1 ]; then
-            echo "ERROR: expected 1 staging PR, got $count" >&2; exit 1
-          fi
-          pr_num=$(gh pr list --repo bash0816/Codex-Termux \
-            --base main --head staging --state open \
-            --json number --jq '.[0].number')
-          gh pr merge "$pr_num" --auto --merge \
-            --subject "release: merge staging for codex-termux ${VER}"
-          echo "Auto-merge enabled on staging PR #${pr_num}"
-
       - name: Enable auto-merge on docs PR
         run: |
           set -eu
