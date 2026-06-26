@@ -4,51 +4,53 @@ Codex wrapper package for Termux.
 
 Termux 向け Codex wrapper package です。
 
+## Security Notice / セキュリティ通知
+
+> **0.142.2 contains a security patch. Existing users are recommended to update.**
+>
+> **0.142.2 はセキュリティパッチを含みます。既存ユーザーも 0.142.2 以降への更新を推奨します。**
+>
+> - OpenSSL 3.6.3 (patched release)
+> - esbuild 0.28.1 (patched release)
+> - PowerShell AST safety classifier hardening
+
 ## Status / 状態
 
-Public package release is staged for publish review.
+Active — `@bash0816/codex-termux@0.142.2` is the current stable release.
 
-現在は public package の publish review 段階です。
-
-This repository is public, but install guidance remains withheld until publish completes.
-
-このリポジトリは public ですが、publish 完了まで install guidance は withheld のままです。
-
-Public support remains withheld until the publish gate passes.
-
-publish gate を通るまで public support は withheld のままです。
+`@bash0816/codex-termux@0.142.2` が現在の安定版です。
 
 ## Manifest Snapshot / manifest スナップショット
 
 - Repository visibility: `public`
 - Canonical package name: `@bash0816/codex-termux`
-- Canonical package status: `ready_to_publish`
-- Public distribution status: `staged_for_publish`
-- Support status: `public_support_pending_publish`
-- Latest audited version: `0.142.0`
-- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`
+- Latest audited version: `0.142.2`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`
 
 ## Install / インストール
 
-Public install guidance remains withheld.
-
-public install guidance は withheld のままです。
+```sh
+npm install -g @bash0816/codex-termux
+codex --version
+```
 
 ## Update / 更新
 
-Public update guidance remains withheld.
+```sh
+npm install -g @bash0816/codex-termux@latest
+codex --version
+```
 
-public update guidance は withheld のままです。
+0.142.2 はセキュリティパッチを含むため、既存ユーザーも更新を推奨します。
 
 ## Rollback / ロールバック
 
-Rollback guidance will be published after the release gate passes.
+```sh
+npm install -g @bash0816/codex-termux@0.142.0
+codex --version
+```
 
-rollback guidance は release gate 通過後に公開します。
-
-Package files:
-
-package files:
+## Package files
 
 ```text
 packages/codex-termux
