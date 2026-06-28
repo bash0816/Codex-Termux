@@ -1,3 +1,14 @@
+## 0.142.3 — 2026-06-28
+
+upstream openai/codex@0.142.3 追従。
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.142.3
+codex --version
+```
+
 ## 0.142.2 — 2026-06-26
 
 upstream openai/codex@0.142.2 追従。セキュリティパッチ（OpenSSL 3.6.3・esbuild 0.28.1）適用・PowerShell AST 安全チェック強化。**既存ユーザーも 0.142.2 以降への更新を推奨。**
