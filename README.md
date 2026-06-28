@@ -24,8 +24,8 @@ Active — `@bash0816/codex-termux@0.142.3` is the current stable release.
 
 - Repository visibility: `public`
 - Canonical package name: `@bash0816/codex-termux`
-- Latest audited version: `0.142.2`
-- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`
+- Latest audited version: `0.142.3`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`
 
 ## Install / インストール
 
@@ -41,12 +41,10 @@ npm install -g @bash0816/codex-termux@latest
 codex --version
 ```
 
-0.142.2 はセキュリティパッチを含むため、既存ユーザーも更新を推奨します。
-
 ## Rollback / ロールバック
 
 ```sh
-npm install -g @bash0816/codex-termux@0.142.3
+npm install -g @bash0816/codex-termux@0.142.2
 codex --version
 ```
 
