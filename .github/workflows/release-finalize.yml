@@ -67,11 +67,36 @@ jobs:
           branch="automation/docs-${VER}"
           git checkout -b "$branch"
 
-          if grep -qE "codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?" README.md; then
-            sed -i -E "s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-zA-Z.]+)?|codex-termux@${VER}|g" README.md
-            echo "README version references updated to $VER"
+          # (A) Status セクションのみ更新
+          if ! grep -qE "^## Status" README.md; then
+            echo "ERROR: ## Status section not found" >&2; exit 1
+          fi
+          sed -i -E "/^## Status/,/^##[[:space:]]/{s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|codex-termux@${VER}|g}" README.md
+          if ! sed -n "/^## Status/,/^##[[:space:]]/p" README.md | grep -qF "codex-termux@${VER}"; then
+            echo "ERROR: Status section update failed" >&2; exit 1
+          fi
+          echo "README Status section updated to $VER"
+
+          # (B) Latest audited version
+          if ! grep -qE "Latest audited version:" README.md; then
+            echo "ERROR: Latest audited version line not found" >&2; exit 1
+          fi
+          sed -i -E "s/Latest audited version: \`[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\`/Latest audited version: \`${VER}\`/" README.md
+          if ! grep -qF "Latest audited version: \`${VER}\`" README.md; then
+            echo "ERROR: Latest audited version update failed" >&2; exit 1
+          fi
+
+          # (C) Tracked versions
+          if ! grep -qF "Tracked versions:" README.md; then
+            echo "ERROR: Tracked versions line not found" >&2; exit 1
+          fi
+          if grep -F "Tracked versions:" README.md | grep -Fq "\`${VER}\`"; then
+            echo "README tracked versions already contains ${VER}"
           else
-            echo "WARNING: no versioned codex-termux@ reference found in README.md"
+            sed -i -E "s/(Tracked versions:.*\`[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\`)[[:space:]]*$/\1, \`${VER}\`/" README.md
+            if ! grep -F "Tracked versions:" README.md | grep -Fq "\`${VER}\`"; then
+              echo "ERROR: Tracked versions append failed" >&2; exit 1
+            fi
           fi
 
           date_str=$(TZ=Asia/Tokyo date +%Y-%m-%d)
