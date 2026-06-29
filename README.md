@@ -16,16 +16,16 @@ Termux 向け Codex wrapper package です。
 
 ## Status / 状態
 
-Active — `@bash0816/codex-termux@0.142.3` is the current stable release.
+Active — `@bash0816/codex-termux@0.142.4` is the current stable release.
 
-`@bash0816/codex-termux@0.142.3` が現在の安定版です。
+`@bash0816/codex-termux@0.142.4` が現在の安定版です。
 
 ## Manifest Snapshot / manifest スナップショット
 
 - Repository visibility: `public`
 - Canonical package name: `@bash0816/codex-termux`
-- Latest audited version: `0.142.3`
-- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`
+- Latest audited version: `0.142.4`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`
 
 ## Install / インストール
 
