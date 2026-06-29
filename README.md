@@ -16,9 +16,9 @@ Termux 向け Codex wrapper package です。
 
 ## Status / 状態
 
-Active — `@bash0816/codex-termux@0.142.3` is the current stable release.
+Active — `@bash0816/codex-termux@0.142.4` is the current stable release.
 
-`@bash0816/codex-termux@0.142.3` が現在の安定版です。
+`@bash0816/codex-termux@0.142.4` が現在の安定版です。
 
 ## Manifest Snapshot / manifest スナップショット
 
@@ -44,7 +44,7 @@ codex --version
 ## Rollback / ロールバック
 
 ```sh
-npm install -g @bash0816/codex-termux@0.142.2
+npm install -g @bash0816/codex-termux@0.142.4
 codex --version
 ```
 
