@@ -1,6 +1,6 @@
 ## 0.142.5 — 2026-07-02
 
-upstream openai/codex@0.142.5 追従。
+upstream openai/codex@rust-v0.142.5 追従。Bug fix: Responses WebSocketのリクエストペイロード全体がtrace logに書き込まれる問題を修正（#30771、release/0.142へのbackport）。
 
 ### Install
 
