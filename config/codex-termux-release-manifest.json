@@ -4,10 +4,10 @@
   "public_distribution_status": "published",
   "support_status": "active",
   "latest_audited_version": "0.142.5",
-  "latest_candidate_version": "0.142.5",
+  "latest_candidate_version": "0.143.0",
   "previous_stable_version": "0.142.4",
   "candidate_state": "published",
-  "candidate_state_status": "published",
+  "candidate_state_status": "codex_build_dispatched",
   "audit_evidence_ref": "",
   "source_repo": "openai/codex",
   "source_ref": "rust-v0.142.5",
@@ -44,7 +44,7 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-01T19:40:00Z",
+  "updated_at": "2026-07-08T20:24:59.199Z",
   "build_run_id": "28507479390",
   "source_sha": "26de83050b20f7e0ee211b9739e52ae00ce8032a"
 }
