@@ -7,7 +7,8 @@ on:
 
 permissions:
   contents: write
-  actions: write
+  actions: read
+  pull-requests: write
 
 jobs:
   stage:
@@ -20,26 +21,13 @@ jobs:
         with:
           ref: main
           token: ${{ github.token }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
 
-      - name: Check candidate state
-        id: check_state
-        run: |
-          set -eu
-          state=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).candidate_state_status")
-          if [ "$state" = "codex_build_dispatched" ]; then
-            echo "should_stage=true" >> "$GITHUB_OUTPUT"
-            echo "Candidate state OK: $state"
-          else
-            echo "should_stage=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping: candidate state is '$state', expected 'codex_build_dispatched'"
-          fi
-
       - name: Download artifact
-        if: steps.check_state.outputs.should_stage == 'true'
         env:
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
@@ -53,7 +41,6 @@ jobs:
 
       - name: Verify and extract artifact metadata
         id: artifact
-        if: steps.check_state.outputs.should_stage == 'true'
         env:
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
@@ -80,12 +67,6 @@ jobs:
             exit 1
           }
 
-          candidate_ver=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_candidate_version")
-          if [ "$ver" != "$candidate_ver" ]; then
-            echo "ERROR: artifact version $ver != manifest candidate $candidate_ver" >&2
-            exit 1
-          fi
-
           {
             echo "ver=$ver"
             echo "source_ref=$source_ref"
@@ -93,49 +74,97 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Verified: codex $ver from openai/codex ($source_ref)"
 
-      - name: Update manifest for candidate publish
+      # NOTE: candidate_state_status='codex_build_dispatched' is written by
+      # codex-version-watch.yml only to the automation/codex-<version> branch,
+      # never to main (see codex-version-watch.yml 'Create automation branch
+      # and update manifest' step: git checkout -B $branch origin/main, then
+      # commit/push only to $branch). Reading the state from main meant this
+      # gate was permanently false; every prior candidate publish was staged
+      # by hand instead (see commit 2affb800 on the 0.142.2 automation branch).
+      - name: Check candidate branch state
+        id: check_state
+        env:
+          VER: ${{ steps.artifact.outputs.ver }}
+        run: |
+          set -eu
+          branch="automation/codex-${VER}"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+          if ! git fetch origin "$branch:refs/remotes/origin/$branch" 2>/dev/null; then
+            echo "should_stage=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: branch $branch not found"
+            exit 0
+          fi
+
+          git show "origin/$branch:config/codex-termux-release-manifest.json" > /tmp/candidate-manifest.json
+
+          candidate_ver=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/candidate-manifest.json','utf8')).latest_candidate_version")
+          candidate_state=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/candidate-manifest.json','utf8')).candidate_state_status")
+
+          if [ "$candidate_ver" = "$VER" ] && [ "$candidate_state" = "codex_build_dispatched" ]; then
+            echo "should_stage=true" >> "$GITHUB_OUTPUT"
+            echo "Candidate state OK: $candidate_state (version $candidate_ver)"
+          else
+            echo "should_stage=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: branch $branch candidate version=$candidate_ver state=$candidate_state (expected version=$VER state=codex_build_dispatched)"
+          fi
+
+      # Commits the promotion fields directly onto the existing automation
+      # branch (fast-forward from origin/$branch, which was fetched above),
+      # instead of an untested separate staging-branch push. This mirrors
+      # what has always been done by hand (commit 2affb800 pattern) and keeps
+      # merge-to-main + npm-package.yml dispatch as the existing human-gated
+      # step (real release history shows npm-package.yml has only ever been
+      # dispatched with ref=main, never ref=staging).
+      - name: Update manifest and package.json on candidate branch
         if: steps.check_state.outputs.should_stage == 'true'
         env:
           BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
           SOURCE_REF: ${{ steps.artifact.outputs.source_ref }}
+          VER: ${{ steps.artifact.outputs.ver }}
+          BRANCH: ${{ steps.check_state.outputs.branch }}
         run: |
           set -eu
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+
           node - <<'NODE'
           const fs = require('fs');
-          const p = 'config/codex-termux-release-manifest.json';
-          const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const manifestPath = 'config/codex-termux-release-manifest.json';
+          const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
           m.build_run_id = String(process.env.BUILD_RUN_ID);
           m.source_ref = process.env.SOURCE_REF;
           m.candidate_state_status = 'ready_to_publish';
           m.canonical_package_status = 'ready_to_publish';
           m.public_distribution_status = 'staged_for_publish';
           m.updated_at = new Date().toISOString();
-          fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
-          console.log('manifest updated: candidate ready_to_publish');
+          fs.writeFileSync(manifestPath, JSON.stringify(m, null, 2) + '\n');
+
+          const pkgPath = 'packages/codex-termux/package.json';
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.version = process.env.VER;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+
+          console.log('manifest updated: candidate ready_to_publish, package.json version set to', process.env.VER);
           NODE
 
-      - name: Commit and push to staging
-        if: steps.check_state.outputs.should_stage == 'true'
-        run: |
-          set -eu
-          VER="${{ steps.artifact.outputs.ver }}"
-          RUN_ID="${{ github.event.workflow_run.id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add config/codex-termux-release-manifest.json
+          git add config/codex-termux-release-manifest.json packages/codex-termux/package.json
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
-          git commit -m "stage: codex ${VER} ready_to_publish (build run ${RUN_ID})"
-          git push origin HEAD:staging
-          echo "Pushed candidate manifest to staging branch"
+          git commit -m "stage: codex ${VER} ready_to_publish (build run ${BUILD_RUN_ID})"
+          git push origin "HEAD:$BRANCH"
+          echo "Pushed ready_to_publish state to $BRANCH"
 
-      - name: Dispatch candidate publish
+      - name: Comment on candidate PR
         if: steps.check_state.outputs.should_stage == 'true'
+        env:
+          BRANCH: ${{ steps.check_state.outputs.branch }}
+          VER: ${{ steps.artifact.outputs.ver }}
         run: |
           set -eu
-          VER="${{ steps.artifact.outputs.ver }}"
-          gh workflow run npm-package.yml \
-            --repo bash0816/Codex-Termux \
-            --ref staging \
-            --field publish=true \
-            --field npm_tag=candidate
-          echo "Candidate publish dispatched for $VER (npm-publish environment approval required)"
+          pr_number=$(gh pr list --repo bash0816/Codex-Termux --base main --head "$BRANCH" --json number --jq '.[0].number // empty')
+          if [ -n "$pr_number" ]; then
+            gh pr comment "$pr_number" --repo bash0816/Codex-Termux --body "Build for ${VER} succeeded. Manifest and package.json staged as ready_to_publish on \`${BRANCH}\`. Ready for human review: merge to main, then manually dispatch npm-package.yml (ref=main, publish=true, npm_tag=candidate) after npm-publish environment approval."
+          else
+            echo "No open PR found for $BRANCH, skipping comment"
+          fi
