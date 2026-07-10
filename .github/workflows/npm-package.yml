@@ -66,6 +66,7 @@ jobs:
           node --check ../../scripts/check-public-release-skeleton.js
           node --check ../../scripts/check-public-publish-guard.js
           node --test ../../scripts/sync-public-release-from-manifest.test.js
+          node --test bin/magi-node-launcher.test.js
 
       - name: Manifest / README drift check
         run: node ../../scripts/check-public-release-skeleton.js

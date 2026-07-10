@@ -10,8 +10,8 @@
   "type": "module",
   "bin": {
     "codex-termux": "bin/codex-termux",
-    "codex": "bin/codex.js",
-    "codex-exec": "bin/codex-exec.js"
+    "codex": "bin/codex",
+    "codex-exec": "bin/codex-exec"
   },
   "files": [
     "README.md",
