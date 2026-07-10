@@ -1,13 +1,13 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "staged_for_publish",
+  "canonical_package_status": "published",
+  "public_distribution_status": "published",
   "support_status": "active",
-  "latest_audited_version": "0.142.5",
+  "latest_audited_version": "0.143.0",
   "latest_candidate_version": "0.143.0",
   "previous_stable_version": "0.142.4",
   "candidate_state": "published",
-  "candidate_state_status": "ready_to_publish",
+  "candidate_state_status": "published",
   "audit_evidence_ref": "",
   "source_repo": "openai/codex",
   "source_ref": "rust-v0.143.0",
@@ -21,7 +21,8 @@
     "0.142.2",
     "0.142.3",
     "0.142.4",
-    "0.142.5"
+    "0.142.5",
+    "0.143.0"
   ],
   "historical_baselines": [
     "0.131.0",
@@ -34,7 +35,7 @@
     "status": "published",
     "scope": "wrapper_package"
   },
-  "gate_summary": "0.142.5 published as @latest. Fixes trace log leaking full Responses WebSocket request payload (#30771). Build run 28507479390.",
+  "gate_summary": "0.143.0 published as @latest. Build run 28973237063.",
   "install_command": "npm install -g @bash0816/codex-termux@latest",
   "update_strategy": "npm_reinstall_audited_package",
   "update_command": "codex update",
@@ -44,7 +45,7 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-08T22:57:39.449Z",
+  "updated_at": "2026-07-10T05:26:22.000Z",
   "build_run_id": "28973237063",
   "source_sha": "c4d748f586a84a3ed5b6aceb82e9a1db4abb1cda"
 }
