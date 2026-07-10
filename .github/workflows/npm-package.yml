@@ -71,7 +71,15 @@ jobs:
         run: node ../../scripts/check-public-release-skeleton.js
 
       - name: Public docs sync drift check
-        run: node ../../scripts/sync-public-release-from-manifest.js --check
+        run: |
+          set -eu
+          pkg_version=$(node -p "require('./package.json').version")
+          audited_version=$(node -p "require('../../config/codex-termux-release-manifest.json').latest_audited_version")
+          if [ "$pkg_version" = "$audited_version" ]; then
+            node ../../scripts/sync-public-release-from-manifest.js --check
+          else
+            echo "Skipping public docs sync drift check: package.json version ($pkg_version) is a pending candidate, not yet the audited/published version ($audited_version)"
+          fi
 
       - name: Pack dry run
         run: npm pack --dry-run
