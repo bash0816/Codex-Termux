@@ -73,12 +73,12 @@ jobs:
       - name: Public docs sync drift check
         run: |
           set -eu
-          pkg_version=$(node -p "require('./package.json').version")
-          audited_version=$(node -p "require('../../config/codex-termux-release-manifest.json').latest_audited_version")
-          if [ "$pkg_version" = "$audited_version" ]; then
+          canonical_status=$(node -p "require('../../config/codex-termux-release-manifest.json').canonical_package_status")
+          distribution_status=$(node -p "require('../../config/codex-termux-release-manifest.json').public_distribution_status")
+          if [ "$canonical_status" = "published" ] && [ "$distribution_status" = "published" ]; then
             node ../../scripts/sync-public-release-from-manifest.js --check
           else
-            echo "Skipping public docs sync drift check: package.json version ($pkg_version) is a pending candidate, not yet the audited/published version ($audited_version)"
+            echo "Skipping public docs sync drift check: canonical_package_status=$canonical_status, public_distribution_status=$distribution_status (not yet fully published)"
           fi
 
       - name: Pack dry run
