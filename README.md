@@ -4,51 +4,53 @@ Codex wrapper package for Termux.
 
 Termux 向け Codex wrapper package です。
 
-## Security Notice / セキュリティ通知
-
-> **0.142.2 contains a security patch. Existing users are recommended to update.**
->
-> **0.142.2 はセキュリティパッチを含みます。既存ユーザーも 0.142.2 以降への更新を推奨します。**
->
-> - OpenSSL 3.6.3 (patched release)
-> - esbuild 0.28.1 (patched release)
-> - PowerShell AST safety classifier hardening
-
 ## Status / 状態
 
-Active — `@bash0816/codex-termux@0.144.1` is the current stable release.
+Public package release is live.
 
-`@bash0816/codex-termux@0.144.1` が現在の安定版です。
+現在は public package を公開中です。
+
+This repository is public, and the package is published.
+
+このリポジトリは public で、package も公開済みです。
+
+Public support is available for the published package.
+
+公開 package をサポートします。
 
 ## Manifest Snapshot / manifest スナップショット
 
 - Repository visibility: `public`
 - Canonical package name: `@bash0816/codex-termux`
+- Canonical package status: `published`
+- Public distribution status: `published`
+- Support status: `active`
 - Latest audited version: `0.144.1`
 - Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`
 
 ## Install / インストール
 
 ```sh
-npm install -g @bash0816/codex-termux
+npm install -g @bash0816/codex-termux@latest
 codex --version
+codex login status
 ```
 
 ## Update / 更新
 
 ```sh
-npm install -g @bash0816/codex-termux@latest
-codex --version
+codex update
 ```
 
 ## Rollback / ロールバック
 
 ```sh
-npm install -g @bash0816/codex-termux@0.142.3
-codex --version
+npm install -g @bash0816/codex-termux@0.143.0
 ```
 
-## Package files
+Package files:
+
+package files:
 
 ```text
 packages/codex-termux

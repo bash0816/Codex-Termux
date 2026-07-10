@@ -7,6 +7,7 @@ const packageJsonPath = path.join(repoRoot, 'packages', 'codex-termux', 'package
 const packageReadmePath = path.join(repoRoot, 'packages', 'codex-termux', 'README.md');
 const rootReadmePath = path.join(repoRoot, 'README.md');
 const guidancePath = path.join(repoRoot, 'docs', '20260503_codex-termux-release-guidance.md');
+const packageManifestPath = path.join(repoRoot, 'packages', 'codex-termux', 'config', 'codex-termux-release-manifest.json');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -35,8 +36,9 @@ function getState(manifest) {
   const candidateVersion = manifest.latest_candidate_version || auditedVersion;
   const rollbackVersion = manifest.rollback_version || auditedVersion;
   const isPublished =
+    manifest.canonical_package_status === 'published' &&
     manifest.public_distribution_status === 'published' &&
-    manifest.support_status === 'public_supported';
+    (manifest.support_status === 'active' || manifest.support_status === 'public_supported');
   const isReadyToPublish = manifest.canonical_package_status === 'ready_to_publish';
   const hasPendingCandidate = candidateVersion !== auditedVersion;
 
@@ -379,6 +381,53 @@ function renderPackageJson(manifest, pkg) {
   )}\n`;
 }
 
+function renderPackageManifest(manifest) {
+  // Read existing bundled manifest to preserve package-specific fields
+  const existingBundled = fs.existsSync(packageManifestPath)
+    ? readJson(packageManifestPath)
+    : {};
+
+  // Fields that should be preserved from the existing bundled manifest (package-specific)
+  const preservedFields = {
+    update_command: existingBundled.update_command,
+    update_guidance: existingBundled.update_guidance,
+  };
+
+  // Fields to copy from root manifest
+  const copiedFields = {
+    canonical_package_name: manifest.canonical_package_name,
+    canonical_package_status: manifest.canonical_package_status,
+    public_distribution_status: manifest.public_distribution_status,
+    support_status: manifest.support_status,
+    latest_audited_version: manifest.latest_audited_version,
+    latest_candidate_version: manifest.latest_candidate_version,
+    previous_stable_version: manifest.previous_stable_version,
+    candidate_state: manifest.candidate_state,
+    candidate_state_status: manifest.candidate_state_status,
+    tracked_versions: manifest.tracked_versions,
+    historical_baselines: manifest.historical_baselines,
+    gate_summary: manifest.gate_summary,
+    rollback_version: manifest.rollback_version,
+    install_command: manifest.install_command,
+    update_strategy: manifest.update_strategy,
+    manifest_url: manifest.manifest_url,
+    rollback_policy: manifest.rollback_policy,
+    distribution_strategy: manifest.distribution_strategy,
+    audited_at: manifest.audited_at,
+    updated_at: manifest.updated_at,
+    platform: manifest.platform,
+    arch: manifest.arch,
+    planned_wrapper_package: manifest.planned_wrapper_package,
+  };
+
+  const bundledManifest = {
+    ...copiedFields,
+    ...preservedFields,
+  };
+
+  return `${JSON.stringify(bundledManifest, null, 2)}\n`;
+}
+
 function sync({ checkOnly = false } = {}) {
   const manifest = readJson(manifestPath);
   const pkg = readJson(packageJsonPath);
@@ -387,6 +436,7 @@ function sync({ checkOnly = false } = {}) {
     [packageReadmePath, renderPackageReadme(manifest)],
     [rootReadmePath, renderRootReadme(manifest)],
     [guidancePath, renderGuidance(manifest)],
+    [packageManifestPath, renderPackageManifest(manifest)],
   ];
 
   if (checkOnly) {
@@ -424,6 +474,7 @@ module.exports = {
   getState,
   renderGuidance,
   renderPackageJson,
+  renderPackageManifest,
   renderPackageReadme,
   renderRootReadme,
   sync,

@@ -4,11 +4,11 @@ Termux 向け Codex package です。
 
 ## Manifest Snapshot
 
-- Canonical package status: `ready_to_publish`
-- Public distribution status: `staged_for_publish`
-- Support status: `public_support_pending_publish`
-- Latest audited version: `0.142.0`
-- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`
+- Canonical package status: `published`
+- Public distribution status: `published`
+- Support status: `active`
+- Latest audited version: `0.144.1`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`
 - Update strategy: `npm_reinstall_audited_package`
 
 ## Scope
@@ -41,6 +41,7 @@ directory.
 
 ## Notes
 
-- Do not treat this branch state as public install guidance
-- `codex update` remains routed through the npm-managed package line
-- Publish/support wording is controlled by the release manifest
+- Install with `npm install -g @bash0816/codex-termux@latest`
+- `codex update` is intercepted and rerouted to the same npm install command
+- Update with `codex update`
+- Roll back by installing an explicit published version

@@ -3,11 +3,11 @@
 ## Status
 
 - this repository is public
-- the package is staged for publish review
-- public support remains withheld until publish completes
+- the package is published
+- public support is available
 - package name: `@bash0816/codex-termux`
-- latest audited version: `0.142.0`
-- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`
+- latest audited version: `0.144.1`
+- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`
 
 ## Current Scope
 
@@ -16,21 +16,29 @@
   - syntax check
   - manifest / README drift check
   - `npm pack --dry-run`
-- publish remains gated by manifest status and runtime staging
+- publish and registry verification have completed
 
 ## Install
 
-Public install guidance remains withheld.
+```sh
+npm install -g @bash0816/codex-termux@latest
+codex --version
+codex login status
+```
 
 ## Update
 
-Public update guidance remains withheld.
+```sh
+codex update
+```
 
 Do not install the upstream `@openai/codex` package directly on Termux.
 
 ## Rollback
 
-Rollback guidance will be published after the release gate passes.
+```sh
+npm install -g @bash0816/codex-termux@0.143.0
+```
 
 ## Source Of Truth
 

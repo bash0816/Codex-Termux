@@ -65,9 +65,13 @@ jobs:
           node --check ../../scripts/sync-public-release-from-manifest.js
           node --check ../../scripts/check-public-release-skeleton.js
           node --check ../../scripts/check-public-publish-guard.js
+          node --test ../../scripts/sync-public-release-from-manifest.test.js
 
       - name: Manifest / README drift check
         run: node ../../scripts/check-public-release-skeleton.js
+
+      - name: Public docs sync drift check
+        run: node ../../scripts/sync-public-release-from-manifest.js --check
 
       - name: Pack dry run
         run: npm pack --dry-run
