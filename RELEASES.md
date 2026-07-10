@@ -1,3 +1,14 @@
+## 0.144.1 — 2026-07-10
+
+upstream openai/codex@0.144.1 追従。
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.144.1
+codex --version
+```
+
 ## 0.143.0 — 2026-07-09
 
 upstream openai/codex@0.143.0 追従。
