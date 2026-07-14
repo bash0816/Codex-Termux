@@ -25,8 +25,8 @@ Public support is available for the published package.
 - Canonical package status: `published`
 - Public distribution status: `published`
 - Support status: `active`
-- Latest audited version: `0.144.1`
-- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`
+- Latest audited version: `0.144.3`
+- Tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`, `0.144.3`
 
 ## Install / インストール
 
