@@ -22,6 +22,57 @@ permissions:
   contents: read
 
 jobs:
+  record-run-id:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ github.token }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Record expected build run ID on candidate branch
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -eu
+          ver="${SOURCE_REF#rust-v}"
+          echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "source_ref ($SOURCE_REF) is not a rust-vX.Y.Z tag; skipping run ID recording"
+            exit 0
+          }
+          branch="automation/codex-${ver}"
+          if ! git fetch origin "$branch:refs/remotes/origin/$branch" 2>/dev/null; then
+            echo "Candidate branch $branch not found; skipping run ID recording (likely a manual/test build)"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch" "origin/$branch"
+          node -e "
+            const fs = require('fs');
+            const p = 'config/codex-termux-release-manifest.json';
+            const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+            m.expected_build_run_id = String(process.env.RUN_ID);
+            fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+          "
+          git add config/codex-termux-release-manifest.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: record expected build run ID ${RUN_ID} for ${ver}"
+          git push origin "HEAD:$branch"
+          echo "Recorded expected_build_run_id=${RUN_ID} on $branch"
+
   build:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
@@ -627,3 +678,20 @@ jobs:
           name: codex-external-android-aarch64-${{ github.run_id }}
           path: ${{ env.BUNDLE_DIR }}
           if-no-files-found: error
+
+  dispatch-stage:
+    needs: [record-run-id, build]
+    if: needs.build.result == 'success' && needs.record-run-id.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Dispatch auto-stage-candidate
+        run: |
+          set -eu
+          gh workflow run auto-stage-candidate.yml \
+            --repo bash0816/Codex-Termux \
+            -f build_run_id=${{ github.run_id }}
+          echo "Dispatched auto-stage-candidate.yml for build run ${{ github.run_id }}"
