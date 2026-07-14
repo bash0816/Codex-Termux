@@ -10,6 +10,14 @@ on:
         description: "Public release summary (1-3 lines)"
         required: false
         default: ""
+      dry_run:
+        description: "If true, create the docs PR but skip auto-merge and candidate PR close (for verification only)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: release-finalize-${{ inputs.version }}
@@ -67,37 +75,7 @@ jobs:
           branch="automation/docs-${VER}"
           git checkout -b "$branch"
 
-          # (A) Status セクションのみ更新
-          if ! grep -qE "^## Status" README.md; then
-            echo "ERROR: ## Status section not found" >&2; exit 1
-          fi
-          sed -i -E "/^## Status/,/^##[[:space:]]/{s|codex-termux@[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|codex-termux@${VER}|g}" README.md
-          if ! sed -n "/^## Status/,/^##[[:space:]]/p" README.md | grep -qF "codex-termux@${VER}"; then
-            echo "ERROR: Status section update failed" >&2; exit 1
-          fi
-          echo "README Status section updated to $VER"
-
-          # (B) Latest audited version
-          if ! grep -qE "Latest audited version:" README.md; then
-            echo "ERROR: Latest audited version line not found" >&2; exit 1
-          fi
-          sed -i -E "s/Latest audited version: \`[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\`/Latest audited version: \`${VER}\`/" README.md
-          if ! grep -qF "Latest audited version: \`${VER}\`" README.md; then
-            echo "ERROR: Latest audited version update failed" >&2; exit 1
-          fi
-
-          # (C) Tracked versions
-          if ! grep -qF "Tracked versions:" README.md; then
-            echo "ERROR: Tracked versions line not found" >&2; exit 1
-          fi
-          if grep -F "Tracked versions:" README.md | grep -Fq "\`${VER}\`"; then
-            echo "README tracked versions already contains ${VER}"
-          else
-            sed -i -E "s/(Tracked versions:.*\`[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\`)[[:space:]]*$/\1, \`${VER}\`/" README.md
-            if ! grep -F "Tracked versions:" README.md | grep -Fq "\`${VER}\`"; then
-              echo "ERROR: Tracked versions append failed" >&2; exit 1
-            fi
-          fi
+          VER="$VER" bash scripts/finalize-update-docs.sh
 
           date_str=$(TZ=Asia/Tokyo date +%Y-%m-%d)
           notes="$NOTES"
@@ -115,7 +93,11 @@ jobs:
             fi
           fi
 
-          git add README.md RELEASES.md
+          git add config/codex-termux-release-manifest.json README.md \
+            packages/codex-termux/README.md packages/codex-termux/package.json \
+            docs/20260503_codex-termux-release-guidance.md \
+            packages/codex-termux/config/codex-termux-release-manifest.json \
+            RELEASES.md
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
@@ -137,6 +119,7 @@ jobs:
           fi
 
       - name: Enable auto-merge on docs PR
+        if: inputs.dry_run != 'true'
         run: |
           set -eu
           branch="automation/docs-${VER}"
@@ -151,6 +134,7 @@ jobs:
           fi
 
       - name: Close candidate tracking PR
+        if: inputs.dry_run != 'true'
         run: |
           set -eu
           branch="automation/codex-${VER}"
