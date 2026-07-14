@@ -121,6 +121,7 @@ jobs:
         env:
           BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
           SOURCE_REF: ${{ steps.artifact.outputs.source_ref }}
+          SOURCE_SHA: ${{ steps.artifact.outputs.source_sha }}
           VER: ${{ steps.artifact.outputs.ver }}
           BRANCH: ${{ steps.check_state.outputs.branch }}
         run: |
@@ -133,6 +134,7 @@ jobs:
           const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
           m.build_run_id = String(process.env.BUILD_RUN_ID);
           m.source_ref = process.env.SOURCE_REF;
+          m.source_sha = process.env.SOURCE_SHA;
           m.candidate_state_status = 'ready_to_publish';
           m.canonical_package_status = 'ready_to_publish';
           m.public_distribution_status = 'staged_for_publish';
