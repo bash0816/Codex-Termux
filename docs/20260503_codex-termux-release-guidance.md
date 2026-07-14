@@ -37,7 +37,7 @@ Do not install the upstream `@openai/codex` package directly on Termux.
 ## Rollback
 
 ```sh
-npm install -g @bash0816/codex-termux@0.143.0
+npm install -g @bash0816/codex-termux@0.144.1
 ```
 
 ## Source Of Truth

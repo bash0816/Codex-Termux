@@ -7,7 +7,7 @@
   "latest_candidate_version": "0.144.3",
   "previous_stable_version": "0.144.1",
   "candidate_state": "published",
-  "candidate_state_status": "ready_to_publish",
+  "candidate_state_status": "published",
   "tracked_versions": [
     "0.141.0",
     "0.140.0",
@@ -27,15 +27,15 @@
     "0.131.0",
     "0.128.0"
   ],
-  "gate_summary": "0.144.1 published as @latest. Build run 29071408896.",
-  "rollback_version": "0.143.0",
+  "gate_summary": "0.144.3 published as @latest. Build run 29282002840.",
+  "rollback_version": "0.144.1",
   "install_command": "npm install -g @bash0816/codex-termux@latest",
   "update_strategy": "npm_reinstall_audited_package",
   "manifest_url": "https://raw.githubusercontent.com/bash0816/Codex-Termux/main/config/codex-termux-release-manifest.json",
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-14T22:02:15.711Z",
+  "updated_at": "2026-07-14T23:30:04.833Z",
   "platform": "android",
   "arch": "arm64",
   "planned_wrapper_package": {
