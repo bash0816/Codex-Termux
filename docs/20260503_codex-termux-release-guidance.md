@@ -6,8 +6,8 @@
 - the package is published
 - public support is available
 - package name: `@bash0816/codex-termux`
-- latest audited version: `0.144.3`
-- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`, `0.144.3`
+- latest audited version: `0.144.4`
+- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`, `0.144.3`, `0.144.4`
 
 ## Current Scope
 
