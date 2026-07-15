@@ -1,9 +1,12 @@
 name: Auto Stage Candidate
 
 on:
-  workflow_run:
-    workflows: ["external-build-android-aarch64"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Run ID of the external-build-android-aarch64 workflow to stage"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,11 +15,29 @@ permissions:
 
 jobs:
   stage:
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Verify build run identity and success
+        env:
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -eu
+          run_json=$(gh api "repos/bash0816/Codex-Termux/actions/runs/${BUILD_RUN_ID}")
+          run_path=$(node -p "JSON.parse(process.argv[1]).path" "$run_json")
+          conclusion=$(node -p "JSON.parse(process.argv[1]).conclusion" "$run_json")
+          status=$(node -p "JSON.parse(process.argv[1]).status" "$run_json")
+          if [ "$run_path" != ".github/workflows/external-build-android-aarch64.yml" ]; then
+            echo "ERROR: run $BUILD_RUN_ID is not from external-build-android-aarch64.yml (path: $run_path)" >&2
+            exit 1
+          fi
+          if [ "$status" != "completed" ] || [ "$conclusion" != "success" ]; then
+            echo "ERROR: run $BUILD_RUN_ID is not a successful completed run (status=$status conclusion=$conclusion)" >&2
+            exit 1
+          fi
+          echo "Verified: run $BUILD_RUN_ID is a successful external-build-android-aarch64.yml run"
+
       - uses: actions/checkout@v7
         with:
           ref: main
@@ -29,7 +50,7 @@ jobs:
 
       - name: Download artifact
         env:
-          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_ID: ${{ inputs.build_run_id }}
         run: |
           set -eu
           mkdir -p /tmp/codex-artifact
@@ -42,7 +63,7 @@ jobs:
       - name: Verify and extract artifact metadata
         id: artifact
         env:
-          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_ID: ${{ inputs.build_run_id }}
         run: |
           set -eu
           MANIFEST_FILE="$ARTIFACT_DIR/manifest.json"
@@ -74,17 +95,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Verified: codex $ver from openai/codex ($source_ref)"
 
-      # NOTE: candidate_state_status='codex_build_dispatched' is written by
-      # codex-version-watch.yml only to the automation/codex-<version> branch,
-      # never to main (see codex-version-watch.yml 'Create automation branch
-      # and update manifest' step: git checkout -B $branch origin/main, then
-      # commit/push only to $branch). Reading the state from main meant this
-      # gate was permanently false; every prior candidate publish was staged
-      # by hand instead (see commit 2affb800 on the 0.142.2 automation branch).
       - name: Check candidate branch state
         id: check_state
         env:
           VER: ${{ steps.artifact.outputs.ver }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: |
           set -eu
           branch="automation/codex-${VER}"
@@ -100,26 +115,20 @@ jobs:
 
           candidate_ver=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/candidate-manifest.json','utf8')).latest_candidate_version")
           candidate_state=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/candidate-manifest.json','utf8')).candidate_state_status")
+          expected_run_id=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/candidate-manifest.json','utf8')).expected_build_run_id || ''")
 
-          if [ "$candidate_ver" = "$VER" ] && [ "$candidate_state" = "codex_build_dispatched" ]; then
+          if [ "$candidate_ver" = "$VER" ] && [ "$candidate_state" = "codex_build_dispatched" ] && [ "$expected_run_id" = "$BUILD_RUN_ID" ]; then
             echo "should_stage=true" >> "$GITHUB_OUTPUT"
-            echo "Candidate state OK: $candidate_state (version $candidate_ver)"
+            echo "Candidate state OK: $candidate_state (version $candidate_ver, run $BUILD_RUN_ID matches expected_build_run_id)"
           else
             echo "should_stage=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping: branch $branch candidate version=$candidate_ver state=$candidate_state (expected version=$VER state=codex_build_dispatched)"
+            echo "Skipping: branch $branch candidate version=$candidate_ver state=$candidate_state expected_run_id=$expected_run_id (input build_run_id=$BUILD_RUN_ID)"
           fi
 
-      # Commits the promotion fields directly onto the existing automation
-      # branch (fast-forward from origin/$branch, which was fetched above),
-      # instead of an untested separate staging-branch push. This mirrors
-      # what has always been done by hand (commit 2affb800 pattern) and keeps
-      # merge-to-main + npm-package.yml dispatch as the existing human-gated
-      # step (real release history shows npm-package.yml has only ever been
-      # dispatched with ref=main, never ref=staging).
       - name: Update manifest and package.json on candidate branch
         if: steps.check_state.outputs.should_stage == 'true'
         env:
-          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
           SOURCE_REF: ${{ steps.artifact.outputs.source_ref }}
           SOURCE_SHA: ${{ steps.artifact.outputs.source_sha }}
           VER: ${{ steps.artifact.outputs.ver }}
