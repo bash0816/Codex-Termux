@@ -82,21 +82,30 @@ jobs:
           if [ -z "$notes" ]; then
             upstream_tag="rust-v${VER}"
             upstream_body=$(gh api "repos/openai/codex/releases/tags/${upstream_tag}" --jq '.body' 2>/dev/null || echo "")
-            notes_file=$(mktemp)
             if [ -n "$upstream_body" ]; then
-              printf 'upstream openai/codex %s 追従。\n\n**Upstream highlights / 主な変更（upstream）**\n\n%s' \
-                "$VER" "$upstream_body" > "$notes_file"
+              notes=$(printf 'upstream openai/codex %s 追従。\n\n**Upstream highlights / 主な変更（upstream）**\n\n%s' "$VER" "$upstream_body")
             else
-              printf 'upstream openai/codex %s 追従。' "$VER" > "$notes_file"
+              notes=$(printf 'upstream openai/codex %s 追従。' "$VER")
             fi
-            notes=$(cat "$notes_file")
-            rm -f "$notes_file"
           fi
-          entry="## ${VER} — ${date_str}\n\n${notes}\n\n### Install\n\n\`\`\`sh\nnpm install -g @bash0816/codex-termux@${VER}\ncodex --version\n\`\`\`\n\n"
+          entry=$(cat <<RELNOTES_EOF_9f3a2b
+## ${VER} — ${date_str}
+
+${notes}
+
+### Install
+
+\`\`\`sh
+npm install -g @bash0816/codex-termux@${VER}
+codex --version
+\`\`\`
+
+RELNOTES_EOF_9f3a2b
+)
           if [ -f RELEASES.md ] && grep -qE "^## ${VER}([[:space:]]|$)" RELEASES.md; then
             echo "RELEASES.md already has ${VER} entry"
           else
-            printf "%b" "${entry}" > /tmp/new_entry.md
+            printf '%s\n' "$entry" > /tmp/new_entry.md
             if [ -f RELEASES.md ]; then
               cat /tmp/new_entry.md RELEASES.md > /tmp/releases_new.md
               mv /tmp/releases_new.md RELEASES.md
