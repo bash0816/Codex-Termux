@@ -118,17 +118,23 @@ jobs:
             echo "PR created: $pr_url"
           fi
 
-      - name: Enable auto-merge on docs PR
+      - name: Merge docs PR (admin bypass)
         if: inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_ADMIN_PAT }}
         run: |
           set -eu
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "ERROR: RELEASE_ADMIN_PAT secret is not set" >&2
+            exit 1
+          fi
           branch="automation/docs-${VER}"
           pr_num=$(gh pr list --repo bash0816/Codex-Termux \
             --base main --head "$branch" --state open \
             --json number --jq '.[0].number // empty')
           if [ -n "$pr_num" ]; then
-            gh pr merge "$pr_num" --squash --delete-branch
-            echo "Auto-merge enabled on docs PR #${pr_num}"
+            gh pr merge "$pr_num" --admin --squash --delete-branch
+            echo "Docs PR #${pr_num} merged (admin bypass)"
           else
             echo "No open docs PR found, skipping"
           fi
