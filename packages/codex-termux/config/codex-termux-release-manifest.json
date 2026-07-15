@@ -3,11 +3,11 @@
   "canonical_package_status": "published",
   "public_distribution_status": "published",
   "support_status": "active",
-  "latest_audited_version": "0.144.3",
-  "latest_candidate_version": "0.144.3",
-  "previous_stable_version": "0.144.1",
+  "latest_audited_version": "0.144.4",
+  "latest_candidate_version": "0.144.4",
+  "previous_stable_version": "0.144.3",
   "candidate_state": "published",
-  "candidate_state_status": "published",
+  "candidate_state_status": "ready_to_publish",
   "tracked_versions": [
     "0.141.0",
     "0.140.0",
@@ -21,7 +21,8 @@
     "0.142.5",
     "0.143.0",
     "0.144.1",
-    "0.144.3"
+    "0.144.3",
+    "0.144.4"
   ],
   "historical_baselines": [
     "0.131.0",
@@ -35,7 +36,7 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-14T23:30:04.833Z",
+  "updated_at": "2026-07-15T12:00:47.575Z",
   "platform": "android",
   "arch": "arm64",
   "planned_wrapper_package": {
