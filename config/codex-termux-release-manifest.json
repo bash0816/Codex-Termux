@@ -1,16 +1,16 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "published",
-  "public_distribution_status": "published",
+  "canonical_package_status": "ready_to_publish",
+  "public_distribution_status": "staged_for_publish",
   "support_status": "active",
   "latest_audited_version": "0.144.4",
-  "latest_candidate_version": "0.144.4",
+  "latest_candidate_version": "0.144.5",
   "previous_stable_version": "0.144.3",
   "candidate_state": "published",
   "candidate_state_status": "ready_to_publish",
   "audit_evidence_ref": "",
   "source_repo": "openai/codex",
-  "source_ref": "rust-v0.144.4",
+  "source_ref": "rust-v0.144.5",
   "tracked_versions": [
     "0.141.0",
     "0.140.0",
@@ -48,8 +48,8 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-15T12:00:47.575Z",
-  "build_run_id": "29377927577",
-  "source_sha": "8c68d4c87dc54d38861f5114e920c3de2efa5876",
-  "expected_build_run_id": "29377927577"
+  "updated_at": "2026-07-16T06:51:13.855Z",
+  "build_run_id": "29473924473",
+  "source_sha": "87db9bc18ba5bc82c1cb4e4381b44f693ee35623",
+  "expected_build_run_id": "29473924473"
 }
