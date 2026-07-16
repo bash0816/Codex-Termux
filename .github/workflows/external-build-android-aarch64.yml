@@ -563,6 +563,20 @@ jobs:
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-exec" "$BUNDLE_DIR/codex-exec"
           cp "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$BUNDLE_DIR/libc++_shared.so"
 
+          NDK_LLVM_STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          CODEX_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex")
+          CODEX_EXEC_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex-exec")
+
+          "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex"
+          "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex-exec"
+
+          CODEX_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex")
+          CODEX_EXEC_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex-exec")
+          awk -v b="$CODEX_SIZE_BEFORE" -v a="$CODEX_SIZE_AFTER" \
+            'BEGIN { printf "codex: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
+          awk -v b="$CODEX_EXEC_SIZE_BEFORE" -v a="$CODEX_EXEC_SIZE_AFTER" \
+            'BEGIN { printf "codex-exec: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
+
           SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
           SOURCE_REPOSITORY_INPUT="${{ inputs.source_repository }}" \
           SOURCE_REF_INPUT="${{ inputs.source_ref }}" \
