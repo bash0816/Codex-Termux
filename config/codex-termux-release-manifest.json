@@ -1,9 +1,9 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "staged_for_publish",
+  "canonical_package_status": "published",
+  "public_distribution_status": "published",
   "support_status": "active",
-  "latest_audited_version": "0.144.4",
+  "latest_audited_version": "0.144.5",
   "latest_candidate_version": "0.144.5",
   "previous_stable_version": "0.144.4",
   "candidate_state": "published",
@@ -25,7 +25,8 @@
     "0.143.0",
     "0.144.1",
     "0.144.3",
-    "0.144.4"
+    "0.144.4",
+    "0.144.5"
   ],
   "historical_baselines": [
     "0.131.0",
@@ -48,7 +49,7 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-16T06:51:13.855Z",
+  "updated_at": "2026-07-17T20:36:49.623Z",
   "build_run_id": "29473924473",
   "source_sha": "87db9bc18ba5bc82c1cb4e4381b44f693ee35623",
   "expected_build_run_id": "29473924473"
