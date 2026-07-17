@@ -134,7 +134,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch" origin/main
           node scripts/update-codex-candidate-manifest.js "$CANDIDATE_VERSION" "$candidate_state"
-          git add config/codex-termux-release-manifest.json
+          git add config/codex-termux-release-manifest.json packages/codex-termux/config/codex-termux-release-manifest.json
           git commit -m "Track Codex ${CANDIDATE_VERSION} candidate"
           git push --force-with-lease origin "$branch"
           echo "branch=$branch" >> "$GITHUB_ENV"
