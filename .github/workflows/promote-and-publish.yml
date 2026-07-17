@@ -59,6 +59,18 @@ jobs:
       - name: Publish guard check
         run: node scripts/check-public-publish-guard.js --skip-runtime-files
 
+      - name: Verify previous_stable_version matches current npm latest
+        if: (inputs.npm_tag || 'latest') == 'latest'
+        run: |
+          set -eu
+          CURRENT_LATEST=$(npm view "@bash0816/codex-termux" dist-tags.latest 2>/dev/null || echo "")
+          PREV=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).previous_stable_version")
+          if [ "$CURRENT_LATEST" != "$PREV" ]; then
+            echo "ERROR: previous_stable_version ($PREV) does not match npm registry latest ($CURRENT_LATEST). Fix config/codex-termux-release-manifest.json before promoting." >&2
+            exit 1
+          fi
+          echo "previous_stable_version ($PREV) matches npm latest ($CURRENT_LATEST), OK"
+
       - name: Promote dist-tag
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
