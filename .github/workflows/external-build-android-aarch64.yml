@@ -644,8 +644,8 @@ jobs:
           if [ -z "$LLVM_NOTICE" ]; then
             echo "Glob search found no match; trying find-based fallback..."
             NDK_SEARCH="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
-            LLVM_NOTICE=$(find "$NDK_SEARCH" -path "*/toolchains/llvm*" -name "NOTICE" -type f 2>/dev/null \
-              | xargs grep -l "LLVM-exception" 2>/dev/null | head -1 || true)
+            LLVM_NOTICE=$(find "$NDK_SEARCH" -path "*/toolchains/llvm*" -name "NOTICE" -type f -print0 2>/dev/null \
+              | xargs -0 grep -l "LLVM-exception" 2>/dev/null | head -1 || true)
           fi
           if [ -n "$LLVM_NOTICE" ]; then
             echo "Using NDK LLVM NOTICE: $LLVM_NOTICE"
