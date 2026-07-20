@@ -2,7 +2,7 @@ name: Codex Version Watch
 
 on:
   schedule:
-    - cron: '7 19 * * *'
+    - cron: '7 7,19 * * *'
   workflow_dispatch:
 
 # Requires:
