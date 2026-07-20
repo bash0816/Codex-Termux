@@ -9,6 +9,7 @@ import https from 'https';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageDir = resolve(__dirname, '..');
+const prefix = resolve(packageDir, '..', '..', '..', '..');
 
 const pkg = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
 const localManifest = JSON.parse(
@@ -127,13 +128,13 @@ function shouldNotify(cache, latestVersion) {
 
 function installTarget(targetVersion) {
   const spec = `${pkg.name}@${targetVersion}`;
-  const command = `npm install -g ${spec}`;
+  const command = `npm install -g --prefix ${prefix} ${spec}`;
   if (dryRun) {
     console.log(command);
     return 0;
   }
   console.error(`Updating to audited version ${targetVersion}`);
-  const result = spawnSync('npm', ['install', '-g', spec], {
+  const result = spawnSync('npm', ['install', '-g', '--prefix', prefix, spec], {
     stdio: 'inherit',
     env: process.env,
   });
