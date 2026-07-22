@@ -32,7 +32,7 @@
     "0.128.0"
   ],
   "gate_summary": "0.144.3 published as @latest. Build run 29282002840.",
-  "rollback_version": "0.144.1",
+  "rollback_version": "0.144.6",
   "install_command": "npm install -g @bash0816/codex-termux@latest",
   "update_strategy": "npm_reinstall_audited_package",
   "manifest_url": "https://raw.githubusercontent.com/bash0816/Codex-Termux/main/config/codex-termux-release-manifest.json",

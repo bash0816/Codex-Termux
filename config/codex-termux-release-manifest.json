@@ -47,7 +47,7 @@
   "update_command": "codex update",
   "update_guidance": "Run codex update to install the latest audited package version.",
   "manifest_url": "https://raw.githubusercontent.com/bash0816/Codex-Termux/main/config/codex-termux-release-manifest.json",
-  "rollback_version": "0.144.1",
+  "rollback_version": "0.144.6",
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",

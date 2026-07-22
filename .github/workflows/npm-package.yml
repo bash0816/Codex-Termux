@@ -69,8 +69,10 @@ jobs:
           node --check ../../scripts/check-public-release-skeleton.js
           node --check ../../scripts/check-public-publish-guard.js
           node --check ../../scripts/update-codex-candidate-manifest.js
+          node --check ../../scripts/finalize-audited-version.js
           node --test ../../scripts/update-codex-candidate-manifest.test.js
           node --test ../../scripts/sync-public-release-from-manifest.test.js
+          node --test ../../scripts/finalize-audited-version.test.js
           node --test bin/magi-node-launcher.test.js
 
       - name: Manifest / README drift check

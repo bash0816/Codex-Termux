@@ -45,7 +45,7 @@ codex update
 ## Rollback / ロールバック
 
 ```sh
-npm install -g @bash0816/codex-termux@0.144.1
+npm install -g @bash0816/codex-termux@0.144.6
 ```
 
 Package files:
