@@ -135,35 +135,50 @@ jobs:
           BRANCH: ${{ steps.check_state.outputs.branch }}
         run: |
           set -eu
+
+          # Blocker A 対策(v8): checkout直前に再fetchし、その時点のSHAを
+          # 記録しておく。push は force-with-lease でこのSHAに固定し、
+          # (a) 通常の並行更新、(b) codex-version-watch.yml が同名ブランチに
+          # 対して行う --force-with-lease 更新、の両方を確実に検出する。
+          git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
+          expected_sha=$(git rev-parse "origin/$BRANCH")
           git checkout -B "$BRANCH" "origin/$BRANCH"
+
+          recheck_ver=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).latest_candidate_version")
+          recheck_state=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).candidate_state_status")
+          recheck_run_id=$(node -p "JSON.parse(require('fs').readFileSync('config/codex-termux-release-manifest.json','utf8')).expected_build_run_id || ''")
+          recheck_pkg_ver=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/config/codex-termux-release-manifest.json','utf8')).latest_candidate_version")
+          recheck_pkg_state=$(node -p "JSON.parse(require('fs').readFileSync('packages/codex-termux/config/codex-termux-release-manifest.json','utf8')).candidate_state_status")
+          if [ "$recheck_ver" != "$VER" ] || [ "$recheck_state" != "codex_build_dispatched" ] || [ "$recheck_run_id" != "$BUILD_RUN_ID" ] || [ "$recheck_pkg_ver" != "$VER" ] || [ "$recheck_pkg_state" != "codex_build_dispatched" ]; then
+            echo "ERROR: candidate branch state changed between check and update (ver=$recheck_ver state=$recheck_state expected_run_id=$recheck_run_id pkg_ver=$recheck_pkg_ver pkg_state=$recheck_pkg_state)" >&2
+            exit 1
+          fi
+
+          # candidate branch は main からフォークされた時点のスクリプトの
+          # スナップショットしか持たない。stage サブコマンドが確実に
+          # 使えるよう main 版で上書きし、そのままコミット対象に含める。
+          git checkout origin/main -- scripts/update-codex-candidate-manifest.js
+
+          node scripts/update-codex-candidate-manifest.js stage "$BUILD_RUN_ID" "$SOURCE_REF" "$SOURCE_SHA"
 
           node - <<'NODE'
           const fs = require('fs');
-          const manifestPath = 'config/codex-termux-release-manifest.json';
-          const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-          m.build_run_id = String(process.env.BUILD_RUN_ID);
-          m.source_ref = process.env.SOURCE_REF;
-          m.source_sha = process.env.SOURCE_SHA;
-          m.candidate_state_status = 'ready_to_publish';
-          m.canonical_package_status = 'ready_to_publish';
-          m.public_distribution_status = 'staged_for_publish';
-          m.updated_at = new Date().toISOString();
-          fs.writeFileSync(manifestPath, JSON.stringify(m, null, 2) + '\n');
-
           const pkgPath = 'packages/codex-termux/package.json';
           const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
           pkg.version = process.env.VER;
           fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-
-          console.log('manifest updated: candidate ready_to_publish, package.json version set to', process.env.VER);
+          console.log('package.json version set to', process.env.VER);
           NODE
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add config/codex-termux-release-manifest.json packages/codex-termux/package.json
+          git add config/codex-termux-release-manifest.json \
+                  packages/codex-termux/config/codex-termux-release-manifest.json \
+                  packages/codex-termux/package.json \
+                  scripts/update-codex-candidate-manifest.js
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "stage: codex ${VER} ready_to_publish (build run ${BUILD_RUN_ID})"
-          git push origin "HEAD:$BRANCH"
+          git push --force-with-lease="refs/heads/${BRANCH}:${expected_sha}" origin "HEAD:$BRANCH"
           echo "Pushed ready_to_publish state to $BRANCH"
 
       - name: Comment on candidate PR

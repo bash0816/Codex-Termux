@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const { strict: assert } = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { updateManifests } = require('./update-codex-candidate-manifest.js');
+const { spawnSync } = require('child_process');
+const { updateManifests, stageManifestsReadyToPublish } = require('./update-codex-candidate-manifest.js');
 
 // Test helper to create a manifest with defaults
 function createManifest(overrides = {}) {
@@ -255,4 +256,162 @@ test('updateManifests: preserves package-specific update_guidance field', () => 
   } finally {
     fs.rmSync(tmpDir, { recursive: true });
   }
+});
+
+test('stageManifestsReadyToPublish: updates state fields in both root and package manifests', () => {
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'test-'));
+  try {
+    const rootPath = path.join(tmpDir, 'root-manifest.json');
+    const packagePath = path.join(tmpDir, 'package-manifest.json');
+
+    fs.writeFileSync(rootPath, JSON.stringify(createManifest({
+      candidate_state_status: 'codex_build_dispatched',
+      canonical_package_status: 'published',
+      public_distribution_status: 'published',
+    }), null, 2) + '\n');
+    fs.writeFileSync(packagePath, JSON.stringify(createPackageManifest({
+      candidate_state_status: 'codex_build_dispatched',
+      canonical_package_status: 'published',
+      public_distribution_status: 'published',
+    }), null, 2) + '\n');
+
+    stageManifestsReadyToPublish({
+      rootPath,
+      packagePath,
+      buildRunId: '12345',
+      sourceRef: 'rust-v0.145.0',
+      sourceSha: 'deadbeefcafe',
+    });
+
+    const rootManifest = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
+    const packageManifest = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+
+    assert.equal(rootManifest.candidate_state_status, 'ready_to_publish');
+    assert.equal(rootManifest.canonical_package_status, 'ready_to_publish');
+    assert.equal(rootManifest.public_distribution_status, 'staged_for_publish');
+    assert.equal(packageManifest.candidate_state_status, 'ready_to_publish');
+    assert.equal(packageManifest.canonical_package_status, 'ready_to_publish');
+    assert.equal(packageManifest.public_distribution_status, 'staged_for_publish');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+});
+
+test('stageManifestsReadyToPublish: updated_at is identical in both root and package manifests', () => {
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'test-'));
+  try {
+    const rootPath = path.join(tmpDir, 'root-manifest.json');
+    const packagePath = path.join(tmpDir, 'package-manifest.json');
+
+    fs.writeFileSync(rootPath, JSON.stringify(createManifest(), null, 2) + '\n');
+    fs.writeFileSync(packagePath, JSON.stringify(createPackageManifest(), null, 2) + '\n');
+
+    stageManifestsReadyToPublish({
+      rootPath,
+      packagePath,
+      buildRunId: '12345',
+      sourceRef: 'rust-v0.145.0',
+      sourceSha: 'deadbeefcafe',
+    });
+
+    const rootManifest = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
+    const packageManifest = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+
+    assert.equal(rootManifest.updated_at, packageManifest.updated_at);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+});
+
+test('stageManifestsReadyToPublish: sets build_run_id/source_ref/source_sha on root manifest only', () => {
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'test-'));
+  try {
+    const rootPath = path.join(tmpDir, 'root-manifest.json');
+    const packagePath = path.join(tmpDir, 'package-manifest.json');
+
+    fs.writeFileSync(rootPath, JSON.stringify(createManifest(), null, 2) + '\n');
+    fs.writeFileSync(packagePath, JSON.stringify(createPackageManifest(), null, 2) + '\n');
+
+    stageManifestsReadyToPublish({
+      rootPath,
+      packagePath,
+      buildRunId: '12345',
+      sourceRef: 'rust-v0.145.0',
+      sourceSha: 'deadbeefcafe',
+    });
+
+    const rootManifest = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
+    const packageManifest = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+
+    assert.equal(rootManifest.build_run_id, '12345');
+    assert.equal(rootManifest.source_ref, 'rust-v0.145.0');
+    assert.equal(rootManifest.source_sha, 'deadbeefcafe');
+
+    // package manifest schema does not carry these fields; must not be added
+    assert.equal(packageManifest.build_run_id, undefined);
+    assert.equal(packageManifest.source_ref, undefined);
+    assert.equal(packageManifest.source_sha, undefined);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+});
+
+test('stageManifestsReadyToPublish: preserves package-specific fields', () => {
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'test-'));
+  try {
+    const rootPath = path.join(tmpDir, 'root-manifest.json');
+    const packagePath = path.join(tmpDir, 'package-manifest.json');
+
+    fs.writeFileSync(rootPath, JSON.stringify(createManifest(), null, 2) + '\n');
+    fs.writeFileSync(packagePath, JSON.stringify(createPackageManifest({
+      update_command: 'npm install -g @bash0816/codex-termux@latest',
+    }), null, 2) + '\n');
+
+    stageManifestsReadyToPublish({
+      rootPath,
+      packagePath,
+      buildRunId: '12345',
+      sourceRef: 'rust-v0.145.0',
+      sourceSha: 'deadbeefcafe',
+    });
+
+    const packageManifest = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    assert.equal(packageManifest.update_command, 'npm install -g @bash0816/codex-termux@latest');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+});
+
+test('stageManifestsReadyToPublish: throws if a required parameter is missing', () => {
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'test-'));
+  try {
+    const rootPath = path.join(tmpDir, 'root-manifest.json');
+    const packagePath = path.join(tmpDir, 'package-manifest.json');
+    fs.writeFileSync(rootPath, JSON.stringify(createManifest(), null, 2) + '\n');
+    fs.writeFileSync(packagePath, JSON.stringify(createPackageManifest(), null, 2) + '\n');
+
+    assert.throws(() => {
+      stageManifestsReadyToPublish({
+        rootPath,
+        packagePath,
+        buildRunId: '12345',
+        sourceRef: 'rust-v0.145.0',
+        // sourceSha missing
+      });
+    });
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true });
+  }
+});
+
+test('CLI: stage subcommand rejects wrong argument count with non-zero exit', () => {
+  const scriptPath = path.join(__dirname, 'update-codex-candidate-manifest.js');
+  const result = spawnSync(process.execPath, [scriptPath, 'stage', 'only-build-run-id'], { encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+});
+
+test('CLI: legacy two-argument form rejects wrong argument count with non-zero exit', () => {
+  const scriptPath = path.join(__dirname, 'update-codex-candidate-manifest.js');
+  const result = spawnSync(process.execPath, [scriptPath, '0.145.0'], { encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
 });
