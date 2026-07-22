@@ -9,19 +9,7 @@ if [ "$CANDIDATE_VER" != "$VER" ]; then
   exit 1
 fi
 
-node -e "
-  const fs = require('fs');
-  const p = 'config/codex-termux-release-manifest.json';
-  const m = JSON.parse(fs.readFileSync(p, 'utf8'));
-  m.canonical_package_status = 'published';
-  m.public_distribution_status = 'published';
-  m.latest_audited_version = process.env.VER;
-  if (!m.tracked_versions.includes(process.env.VER)) {
-    m.tracked_versions.push(process.env.VER);
-  }
-  m.updated_at = new Date().toISOString();
-  fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
-"
+node scripts/finalize-audited-version.js config/codex-termux-release-manifest.json "$VER"
 
 node scripts/sync-public-release-from-manifest.js
 node scripts/sync-public-release-from-manifest.js --check
