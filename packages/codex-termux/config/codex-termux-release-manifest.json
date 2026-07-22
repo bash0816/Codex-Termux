@@ -1,10 +1,10 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "published",
-  "public_distribution_status": "published",
+  "canonical_package_status": "ready_to_publish",
+  "public_distribution_status": "staged_for_publish",
   "support_status": "active",
   "latest_audited_version": "0.144.6",
-  "latest_candidate_version": "0.144.6",
+  "latest_candidate_version": "0.145.0",
   "previous_stable_version": "0.144.5",
   "candidate_state": "published",
   "candidate_state_status": "ready_to_publish",
@@ -38,7 +38,7 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-07-20T08:19:50.604Z",
+  "updated_at": "2026-07-22T05:57:36.655Z",
   "platform": "android",
   "arch": "arm64",
   "planned_wrapper_package": {
