@@ -2,7 +2,7 @@ const fs = require('fs');
 
 function computeFinalizedManifest(manifest, version) {
   const previousAudited = manifest.latest_audited_version;
-  const isVersionBump = previousAudited && previousAudited !== version;
+  const isVersionBump = previousAudited !== version;
 
   if (isVersionBump) {
     if (!manifest.previous_stable_version) {

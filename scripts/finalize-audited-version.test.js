@@ -40,6 +40,11 @@ test('finalize: throws when previous_stable_version is missing', () => {
   assert.throws(() => computeFinalizedManifest(manifest, '0.145.0'), /previous_stable_version is missing/);
 });
 
+test('finalize: throws when latest_audited_version is missing entirely', () => {
+  const manifest = createManifest({ latest_audited_version: undefined, previous_stable_version: undefined });
+  assert.throws(() => computeFinalizedManifest(manifest, '0.145.0'), /previous_stable_version is missing/);
+});
+
 test('finalize: throws when latest_audited_version does not match previous_stable_version', () => {
   const manifest = createManifest({
     latest_audited_version: '0.144.6',
