@@ -1,3 +1,25 @@
+## 0.146.1 — 2026-08-07
+
+upstream openai/codex 0.146.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+
+- Apply safer automatic-review defaults for cyber-capable models and explain permission changes in the terminal interface. (#37057)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.146.0...rust-v0.146.1
+
+- #37057 [0.146] Backport safer cyber-model auto-review defaults @anp-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.146.1
+codex --version
+```
 ## 0.146.0 — 2026-07-29
 
 upstream openai/codex 0.146.0 追従。
