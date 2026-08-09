@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   record-run-id:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
