@@ -1,7 +1,7 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
   "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "staged_for_publish",
+  "public_distribution_status": "withheld",
   "support_status": "active",
   "latest_audited_version": "0.146.1",
   "latest_candidate_version": "0.147.0",
