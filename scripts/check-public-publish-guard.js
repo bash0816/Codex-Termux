@@ -19,7 +19,7 @@ function must(condition, message) {
 
 const manifest = readJson(manifestPath);
 const pkg = readJson(packageJsonPath);
-const requiredRuntimeFiles = ['codex.bin', 'codex-exec.bin', 'libc++_shared.so'];
+const requiredRuntimeFiles = ['codex.bin', 'codex-exec.bin', 'codex-code-mode-host', 'libc++_shared.so'];
 
 must(pkg.name === '@bash0816/codex-termux', 'unexpected package name');
 must(manifest.canonical_package_name === pkg.name, 'manifest/package name drift');

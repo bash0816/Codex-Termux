@@ -857,6 +857,9 @@ jobs:
           echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
           echo "Building codex-exec..."
           cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-exec 2>&1 | tee /tmp/build-codex-exec.log
+          echo "=== memory/disk after codex-exec ===" && free -h && df -h /home/runner /tmp
+          echo "Building codex-code-mode-host..."
+          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-code-mode-host 2>&1 | tee /tmp/build-codex-code-mode-host.log
           echo "=== memory/disk after build ===" && free -h && df -h /home/runner /tmp
 
       - name: Assemble bundle and manifest
@@ -867,21 +870,27 @@ jobs:
 
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex" "$BUNDLE_DIR/codex"
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-exec" "$BUNDLE_DIR/codex-exec"
+          cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-code-mode-host" "$BUNDLE_DIR/codex-code-mode-host"
           cp "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$BUNDLE_DIR/libc++_shared.so"
 
           NDK_LLVM_STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
           CODEX_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex")
           CODEX_EXEC_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex-exec")
+          CODE_MODE_HOST_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex-code-mode-host")
 
           "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex"
           "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex-exec"
+          "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex-code-mode-host"
 
           CODEX_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex")
           CODEX_EXEC_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex-exec")
+          CODE_MODE_HOST_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex-code-mode-host")
           awk -v b="$CODEX_SIZE_BEFORE" -v a="$CODEX_SIZE_AFTER" \
             'BEGIN { printf "codex: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
           awk -v b="$CODEX_EXEC_SIZE_BEFORE" -v a="$CODEX_EXEC_SIZE_AFTER" \
             'BEGIN { printf "codex-exec: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
+          awk -v b="$CODE_MODE_HOST_SIZE_BEFORE" -v a="$CODE_MODE_HOST_SIZE_AFTER" \
+            'BEGIN { printf "codex-code-mode-host: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
 
           SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
           SOURCE_REPOSITORY_INPUT="${{ inputs.source_repository }}" \
@@ -978,6 +987,7 @@ jobs:
           find "$BUNDLE_DIR" -maxdepth 1 -type f -print | sort
           test -f "$BUNDLE_DIR/codex"
           test -f "$BUNDLE_DIR/codex-exec"
+          test -f "$BUNDLE_DIR/codex-code-mode-host"
           test -f "$BUNDLE_DIR/libc++_shared.so"
           test -f "$BUNDLE_DIR/manifest.json"
           test -f "$BUNDLE_DIR/sha256sums.txt"
@@ -990,6 +1000,7 @@ jobs:
           path: |
             /tmp/build-codex-cli.log
             /tmp/build-codex-exec.log
+            /tmp/build-codex-code-mode-host.log
           if-no-files-found: warn
 
       - name: Upload artifact bundle

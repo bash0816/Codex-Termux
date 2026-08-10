@@ -24,6 +24,7 @@ by OpenAI.
 Files:
   bin/codex.bin
   bin/codex-exec.bin
+  bin/codex-code-mode-host
 
 ---
 
@@ -43,9 +44,9 @@ Files:
 
 ## Rust Crate Dependencies (statically linked)
 
-All Rust crates statically linked into bin/codex.bin and bin/codex-exec.bin
-are listed in THIRD-PARTY-LICENSES/dependency-licenses.json (auto-generated
-at build time).
+All Rust crates statically linked into bin/codex.bin, bin/codex-exec.bin, and
+bin/codex-code-mode-host are listed in
+THIRD-PARTY-LICENSES/dependency-licenses.json (auto-generated at build time).
 
 License texts included in this package:
 - Apache-2.0: THIRD-PARTY-LICENSES/Apache-2.0.txt

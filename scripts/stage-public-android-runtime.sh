@@ -84,13 +84,13 @@ if [ ! -x "$STAGE_HELPER" ]; then
   fail "missing stage helper: $STAGE_HELPER" 1
 fi
 
-for staged in "$BIN_DIR/codex.bin" "$BIN_DIR/codex-exec.bin" "$BIN_DIR/libc++_shared.so"; do
+for staged in "$BIN_DIR/codex.bin" "$BIN_DIR/codex-exec.bin" "$BIN_DIR/codex-code-mode-host" "$BIN_DIR/libc++_shared.so"; do
   if [ -e "$staged" ]; then
     fail "pre-existing staged file: $staged" 1
   fi
 done
 
-for required in manifest.json sha256sums.txt codex codex-exec libc++_shared.so; do
+for required in manifest.json sha256sums.txt codex codex-exec codex-code-mode-host libc++_shared.so; do
   if [ ! -e "$ARTIFACT_DIR/$required" ]; then
     fail "missing artifact: $ARTIFACT_DIR/$required" 1
   fi
@@ -118,7 +118,7 @@ if (manifest.source?.repository !== expectedRepository) fail("bad source.reposit
 if (manifest.source?.ref !== expectedRef) fail("bad source.ref");
 if (manifest.source?.sha !== expectedSha) fail("bad source.sha");
 
-const expectedFiles = ["codex", "codex-exec", "libc++_shared.so"];
+const expectedFiles = ["codex", "codex-exec", "codex-code-mode-host", "libc++_shared.so"];
 if (!Array.isArray(manifest.artifacts?.files)) fail("missing artifacts.files");
 for (const name of expectedFiles) {
   if (!manifest.artifacts.files.includes(name)) fail("missing artifact file: " + name);
@@ -148,7 +148,7 @@ fi
 TEMP_RUNTIME_DIR=$(mktemp -d "$TMP_BASE/codex-termux-public-stage.XXXXXX")
 cleanup() {
   if [ "$STAGED" -eq 0 ]; then
-    rm -f "$BIN_DIR/codex.bin" "$BIN_DIR/codex-exec.bin" "$BIN_DIR/libc++_shared.so"
+    rm -f "$BIN_DIR/codex.bin" "$BIN_DIR/codex-exec.bin" "$BIN_DIR/codex-code-mode-host" "$BIN_DIR/libc++_shared.so"
   fi
   rm -rf "$TEMP_RUNTIME_DIR"
 }
@@ -156,8 +156,9 @@ trap cleanup EXIT INT TERM
 
 cp "$ARTIFACT_DIR/codex" "$TEMP_RUNTIME_DIR/codex"
 cp "$ARTIFACT_DIR/codex-exec" "$TEMP_RUNTIME_DIR/codex-exec"
+cp "$ARTIFACT_DIR/codex-code-mode-host" "$TEMP_RUNTIME_DIR/codex-code-mode-host"
 cp "$ARTIFACT_DIR/libc++_shared.so" "$TEMP_RUNTIME_DIR/libc++_shared.so"
-chmod +x "$TEMP_RUNTIME_DIR/codex" "$TEMP_RUNTIME_DIR/codex-exec"
+chmod +x "$TEMP_RUNTIME_DIR/codex" "$TEMP_RUNTIME_DIR/codex-exec" "$TEMP_RUNTIME_DIR/codex-code-mode-host"
 
 if ! "$STAGE_HELPER" "$PACKAGE_ROOT" "$TEMP_RUNTIME_DIR" "$TEMP_RUNTIME_DIR/libc++_shared.so"; then
   fail "stage helper failed" 12
@@ -165,13 +166,16 @@ fi
 
 ARTIFACT_CODEX_SHA=$(sha256sum "$ARTIFACT_DIR/codex" | awk '{print $1}')
 ARTIFACT_EXEC_SHA=$(sha256sum "$ARTIFACT_DIR/codex-exec" | awk '{print $1}')
+ARTIFACT_HOST_SHA=$(sha256sum "$ARTIFACT_DIR/codex-code-mode-host" | awk '{print $1}')
 ARTIFACT_LIBCXX_SHA=$(sha256sum "$ARTIFACT_DIR/libc++_shared.so" | awk '{print $1}')
 STAGED_CODEX_SHA=$(sha256sum "$BIN_DIR/codex.bin" | awk '{print $1}')
 STAGED_EXEC_SHA=$(sha256sum "$BIN_DIR/codex-exec.bin" | awk '{print $1}')
+STAGED_HOST_SHA=$(sha256sum "$BIN_DIR/codex-code-mode-host" | awk '{print $1}')
 STAGED_LIBCXX_SHA=$(sha256sum "$BIN_DIR/libc++_shared.so" | awk '{print $1}')
 
 [ "$ARTIFACT_CODEX_SHA" = "$STAGED_CODEX_SHA" ] || fail "staged codex checksum mismatch" 12
 [ "$ARTIFACT_EXEC_SHA" = "$STAGED_EXEC_SHA" ] || fail "staged codex-exec checksum mismatch" 12
+[ "$ARTIFACT_HOST_SHA" = "$STAGED_HOST_SHA" ] || fail "staged codex-code-mode-host checksum mismatch" 12
 [ "$ARTIFACT_LIBCXX_SHA" = "$STAGED_LIBCXX_SHA" ] || fail "staged libc++_shared.so checksum mismatch" 12
 
 STAGED=1

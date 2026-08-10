@@ -8,5 +8,6 @@ This repository (bash0816/Codex-Termux) contains:
 
 (2) Bundled third-party software (packages/codex-termux/bin/codex.bin,
     packages/codex-termux/bin/codex-exec.bin,
+    packages/codex-termux/bin/codex-code-mode-host,
     packages/codex-termux/bin/libc++_shared.so):
     See packages/codex-termux/THIRD-PARTY-NOTICES.md for license details.
