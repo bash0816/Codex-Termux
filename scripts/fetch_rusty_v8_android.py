@@ -105,12 +105,32 @@ def main() -> int:
     source_root = Path(args.source_root).resolve()
     version = resolved_v8_crate_version(source_root)
     manifest = manifest_entry(version, args.target)
+    manifest_release_tag = manifest.get("release_tag") if manifest else None
     release_tag = args.release_tag or (
-        manifest.get("release_tag") if manifest else f"rusty-v8-v{version}"
+        manifest_release_tag if manifest else f"rusty-v8-v{version}"
     )
     repository = args.repository
     if manifest and "repository" in manifest:
         repository = manifest["repository"]
+
+    # An explicit --release-tag that differs from the manifest's own
+    # release_tag means the caller deliberately wants a *different*
+    # artifact than the one the manifest's checksums describe (e.g. a
+    # one-off experimental build under a distinct tag). The manifest
+    # checksums only describe the canonical artifact, so they must not be
+    # applied to a different tag's bytes — that would either always fail
+    # (different build, different hash) or, worse, silently pass if some
+    # future artifact happened to collide. Skip checksum validation in
+    # that case rather than compare against the wrong expected values.
+    is_explicit_tag_override = bool(args.release_tag) and args.release_tag != manifest_release_tag
+    checksum_manifest = None if is_explicit_tag_override else manifest
+    if is_explicit_tag_override:
+        print(
+            f"NOTE: --release-tag {args.release_tag!r} overrides the manifest's "
+            f"release_tag {manifest_release_tag!r}; skipping checksum verification "
+            "against manifest values (they describe a different artifact).",
+            file=sys.stderr,
+        )
     output_dir = Path(args.output_dir).resolve()
 
     archive_name = f"librusty_v8_release_{args.target}.a.gz"
@@ -134,21 +154,30 @@ def main() -> int:
     except urllib.error.URLError as exc:
         raise SystemExit(f"failed to download rusty_v8 Android artifacts: {exc}") from exc
 
-    if manifest:
-        expected_archive_sha = manifest.get("archive_sha256")
+    if checksum_manifest:
+        expected_archive_sha = checksum_manifest.get("archive_sha256")
         archive_actual_sha = sha256(archive_path)
         if expected_archive_sha and archive_actual_sha != expected_archive_sha:
             raise SystemExit(
                 f"archive checksum mismatch for {archive_path}; "
                 f"expected {expected_archive_sha}, got {archive_actual_sha}"
             )
-        expected_binding_sha = manifest.get("binding_sha256")
+        expected_binding_sha = checksum_manifest.get("binding_sha256")
         binding_actual_sha = sha256(binding_path)
         if expected_binding_sha and binding_actual_sha != expected_binding_sha:
             raise SystemExit(
                 f"binding checksum mismatch for {binding_path}; "
                 f"expected {expected_binding_sha}, got {binding_actual_sha}"
             )
+    else:
+        print(
+            f"archive sha256 (unverified against manifest): {sha256(archive_path)}",
+            file=sys.stderr,
+        )
+        print(
+            f"binding sha256 (unverified against manifest): {sha256(binding_path)}",
+            file=sys.stderr,
+        )
 
     print(f"resolved v8 crate version: {version}")
     print(f"release tag: {release_tag}")
