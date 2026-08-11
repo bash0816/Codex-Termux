@@ -65,6 +65,19 @@ def parse_args() -> argparse.Namespace:
         help="Optional release tag. Defaults to manifest value or rusty-v8-v<resolved_v8_version>.",
     )
     parser.add_argument(
+        "--expect-archive-sha256",
+        help=(
+            "Expected sha256 of the downloaded archive, required together with "
+            "--expect-binding-sha256 whenever --release-tag names a tag different "
+            "from the manifest's own release_tag (the manifest's checksums describe "
+            "a different artifact and must not be compared against this one)."
+        ),
+    )
+    parser.add_argument(
+        "--expect-binding-sha256",
+        help="Expected sha256 of the downloaded binding file. See --expect-archive-sha256.",
+    )
+    parser.add_argument(
         "--output-dir",
         default=str(ROOT / ".artifacts" / "rusty_v8"),
         help="Directory where the archive and binding will be stored.",
@@ -118,19 +131,24 @@ def main() -> int:
     # artifact than the one the manifest's checksums describe (e.g. a
     # one-off experimental build under a distinct tag). The manifest
     # checksums only describe the canonical artifact, so they must not be
-    # applied to a different tag's bytes — that would either always fail
-    # (different build, different hash) or, worse, silently pass if some
-    # future artifact happened to collide. Skip checksum validation in
-    # that case rather than compare against the wrong expected values.
+    # applied to a different tag's bytes. In that case the caller must
+    # supply the expected checksums explicitly via --expect-archive-sha256
+    # / --expect-binding-sha256 — verification is never skipped outright.
     is_explicit_tag_override = bool(args.release_tag) and args.release_tag != manifest_release_tag
-    checksum_manifest = None if is_explicit_tag_override else manifest
     if is_explicit_tag_override:
-        print(
-            f"NOTE: --release-tag {args.release_tag!r} overrides the manifest's "
-            f"release_tag {manifest_release_tag!r}; skipping checksum verification "
-            "against manifest values (they describe a different artifact).",
-            file=sys.stderr,
-        )
+        if not args.expect_archive_sha256 or not args.expect_binding_sha256:
+            raise SystemExit(
+                f"--release-tag {args.release_tag!r} differs from the manifest's "
+                f"release_tag {manifest_release_tag!r}; the manifest checksums "
+                "describe a different artifact, so --expect-archive-sha256 and "
+                "--expect-binding-sha256 are both required to verify this tag's "
+                "download instead of skipping verification."
+            )
+        expected_archive_sha = args.expect_archive_sha256
+        expected_binding_sha = args.expect_binding_sha256
+    else:
+        expected_archive_sha = manifest.get("archive_sha256") if manifest else None
+        expected_binding_sha = manifest.get("binding_sha256") if manifest else None
     output_dir = Path(args.output_dir).resolve()
 
     archive_name = f"librusty_v8_release_{args.target}.a.gz"
@@ -154,15 +172,13 @@ def main() -> int:
     except urllib.error.URLError as exc:
         raise SystemExit(f"failed to download rusty_v8 Android artifacts: {exc}") from exc
 
-    if checksum_manifest:
-        expected_archive_sha = checksum_manifest.get("archive_sha256")
+    if expected_archive_sha or expected_binding_sha:
         archive_actual_sha = sha256(archive_path)
         if expected_archive_sha and archive_actual_sha != expected_archive_sha:
             raise SystemExit(
                 f"archive checksum mismatch for {archive_path}; "
                 f"expected {expected_archive_sha}, got {archive_actual_sha}"
             )
-        expected_binding_sha = checksum_manifest.get("binding_sha256")
         binding_actual_sha = sha256(binding_path)
         if expected_binding_sha and binding_actual_sha != expected_binding_sha:
             raise SystemExit(

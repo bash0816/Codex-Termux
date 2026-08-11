@@ -18,7 +18,17 @@ on:
         required: true
         type: string
       rusty_v8_release_tag:
-        description: 'Optional override for the rusty_v8 Android release tag to fetch (e.g. "rusty-v8-v150.4.0-sandbox"). Leave empty to use the tag resolved from third_party/v8/android-artifacts.toml on this ref (normal behavior).'
+        description: 'Optional override for the rusty_v8 Android release tag to fetch (e.g. "rusty-v8-v150.4.0-sandbox"). Leave empty to use the tag resolved from third_party/v8/android-artifacts.toml on this ref (normal behavior). When set, rusty_v8_expect_archive_sha256 and rusty_v8_expect_binding_sha256 are both required.'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_archive_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of librusty_v8_release_aarch64-linux-android.a.gz for that tag (the manifest checksums describe a different, canonical artifact and cannot be used here).'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_binding_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of src_binding_release_aarch64-linux-android.rs for that tag.'
         required: false
         default: ""
         type: string
@@ -227,8 +237,15 @@ jobs:
             local helper="$1"
             local source_root_arg="$2"
             local release_tag_arg="$3"
+            local expect_archive_sha_arg="$4"
+            local expect_binding_sha_arg="$5"
             local fetch_env="$RUNNER_TEMP/rusty-v8.env"
-            python3 "$helper" ${source_root_arg:+--source-root "$source_root_arg"} ${release_tag_arg:+--release-tag "$release_tag_arg"} > "$fetch_env"
+            python3 "$helper" \
+              ${source_root_arg:+--source-root "$source_root_arg"} \
+              ${release_tag_arg:+--release-tag "$release_tag_arg"} \
+              ${expect_archive_sha_arg:+--expect-archive-sha256 "$expect_archive_sha_arg"} \
+              ${expect_binding_sha_arg:+--expect-binding-sha256 "$expect_binding_sha_arg"} \
+              > "$fetch_env"
 
             RUSTY_V8_ARCHIVE=""
             RUSTY_V8_SRC_BINDING_PATH=""
@@ -258,7 +275,7 @@ jobs:
 
           if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
             # DioNanos fork: use in-source helper (reads fork's own manifest)
-            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" "" "${{ inputs.rusty_v8_release_tag }}"
+            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" "" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
             echo "V8_ARTIFACT_MODE=helper-present" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=source-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           else
@@ -267,7 +284,7 @@ jobs:
               exit 1
             fi
             # openai/codex: use host-repo helper (reads private repo manifest)
-            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}"
+            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
             echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           fi
