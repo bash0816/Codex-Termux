@@ -17,6 +17,11 @@ on:
         description: Source ref to build
         required: true
         type: string
+      rusty_v8_release_tag:
+        description: 'Optional override for the rusty_v8 Android release tag to fetch (e.g. "rusty-v8-v150.4.0-sandbox"). Leave empty to use the tag resolved from third_party/v8/android-artifacts.toml on this ref (normal behavior).'
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -221,8 +226,9 @@ jobs:
           _fetch_rusty_v8() {
             local helper="$1"
             local source_root_arg="$2"
+            local release_tag_arg="$3"
             local fetch_env="$RUNNER_TEMP/rusty-v8.env"
-            python3 "$helper" ${source_root_arg:+--source-root "$source_root_arg"} > "$fetch_env"
+            python3 "$helper" ${source_root_arg:+--source-root "$source_root_arg"} ${release_tag_arg:+--release-tag "$release_tag_arg"} > "$fetch_env"
 
             RUSTY_V8_ARCHIVE=""
             RUSTY_V8_SRC_BINDING_PATH=""
@@ -252,7 +258,7 @@ jobs:
 
           if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
             # DioNanos fork: use in-source helper (reads fork's own manifest)
-            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" ""
+            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" "" "${{ inputs.rusty_v8_release_tag }}"
             echo "V8_ARTIFACT_MODE=helper-present" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=source-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           else
@@ -261,7 +267,7 @@ jobs:
               exit 1
             fi
             # openai/codex: use host-repo helper (reads private repo manifest)
-            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo"
+            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}"
             echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           fi

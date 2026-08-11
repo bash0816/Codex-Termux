@@ -31,6 +31,11 @@ on:
         options:
           - 'false'
           - 'true'
+      tag_suffix:
+        description: 'Optional suffix appended to the release tag (e.g. "sandbox" for one-off experimental builds that must not become canonical without a separate, deliberate manifest update). When set, this build only creates/updates its own suffixed GitHub Release — it never touches third_party/v8/android-artifacts.toml, never opens a manifest PR, and never dispatches codex-version-watch.yml.'
+        required: false
+        default: ''
+        type: string
 
 # Requires: default GITHUB_TOKEN with contents:write (set below).
 # No extra secrets needed.
@@ -63,7 +68,14 @@ jobs:
           token: ${{ github.token }}
 
       - name: Set RELEASE_TAG
-        run: echo "RELEASE_TAG=rusty-v8-v${V8_VERSION}" >> "$GITHUB_ENV"
+        run: |
+          set -eu
+          suffix="${{ inputs.tag_suffix }}"
+          if [ -n "$suffix" ]; then
+            echo "RELEASE_TAG=rusty-v8-v${V8_VERSION}-${suffix}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=rusty-v8-v${V8_VERSION}" >> "$GITHUB_ENV"
+          fi
 
       - name: Check if release assets already exist
         id: check_release
@@ -263,13 +275,36 @@ jobs:
           # Build using rusty_v8 source via [patch.crates-io]
           build_dir="$RUNNER_TEMP/v8-build-crate"
           mkdir -p "$build_dir/src"
-          printf '[package]\nname = "v8-android-build"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nv8 = "=%s"\n\n[patch.crates-io]\nv8 = { path = "%s" }\n' \
+          printf '[package]\nname = "v8-android-build"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nv8 = { version = "=%s", features = ["v8_enable_sandbox"] }\n\n[patch.crates-io]\nv8 = { path = "%s" }\n' \
             "${V8_VERSION}" "$RV8_SRC" > "$build_dir/Cargo.toml"
           printf 'fn main() {}\n' > "$build_dir/src/main.rs"
 
           cd "$build_dir"
           cargo +"${RUST_VERSION}" build --target "${ANDROID_TARGET}" --release -vv \
             2>&1 | tee "$RUNNER_TEMP/v8-build.log"
+
+      - name: Verify v8_enable_sandbox was actually applied
+        if: steps.check_release.outputs.exists != 'true'
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/v8-target
+        run: |
+          set -Eeuo pipefail
+          args_gn="${CARGO_TARGET_DIR}/${ANDROID_TARGET}/release/gn_out/args.gn"
+          test -f "$args_gn" || { echo "ERROR: args.gn not found at $args_gn" >&2; exit 1; }
+          echo "=== args.gn contents ==="
+          cat "$args_gn"
+          for flag in v8_enable_sandbox v8_enable_pointer_compression v8_enable_external_code_space; do
+            if ! grep -qE "^[[:space:]]*${flag}[[:space:]]*=[[:space:]]*true[[:space:]]*\$" "$args_gn"; then
+              echo "ERROR: ${flag} = true not found in args.gn — sandbox build did not apply" >&2
+              exit 1
+            fi
+            echo "confirmed: ${flag} = true"
+          done
+          if ! grep -qE '\-\-cfg[[:space:]]+.feature="v8_enable_sandbox".' "$RUNNER_TEMP/v8-build.log"; then
+            echo "ERROR: rustc --cfg feature=\"v8_enable_sandbox\" not found in build log" >&2
+            exit 1
+          fi
+          echo "confirmed: rustc --cfg feature=\"v8_enable_sandbox\" present in build log"
 
       - name: Locate and package artifacts
         if: steps.check_release.outputs.exists != 'true'
@@ -324,11 +359,10 @@ jobs:
           gh release upload "${RELEASE_TAG}" \
             "${ARTIFACTS_DIR}/librusty_v8_release_${ANDROID_TARGET}.a.gz" \
             "${ARTIFACTS_DIR}/src_binding_release_${ANDROID_TARGET}.rs" \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber
+            --repo "$GITHUB_REPOSITORY"
 
       - name: Dispatch codex-version-watch (v8 resume)
-        if: steps.check_release.outputs.exists != 'true'
+        if: steps.check_release.outputs.exists != 'true' && inputs.tag_suffix == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -338,7 +372,7 @@ jobs:
           echo "codex-version-watch dispatched for v8 resume (v8=$V8_VERSION)"
 
       - name: Update android-artifacts.toml with self-built checksums
-        if: steps.check_release.outputs.exists != 'true'
+        if: steps.check_release.outputs.exists != 'true' && inputs.tag_suffix == ''
         run: |
           set -eu
           mkdir -p third_party/v8
@@ -352,7 +386,7 @@ jobs:
           cat third_party/v8/android-artifacts.toml
 
       - name: Commit and push manifest update
-        if: steps.check_release.outputs.exists != 'true'
+        if: steps.check_release.outputs.exists != 'true' && inputs.tag_suffix == ''
         env:
           BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
         run: |
@@ -366,7 +400,7 @@ jobs:
           git push -u origin "$BRANCH_NAME"
 
       - name: Create PR for manifest update
-        if: steps.check_release.outputs.exists != 'true'
+        if: steps.check_release.outputs.exists != 'true' && inputs.tag_suffix == ''
         env:
           BRANCH_NAME: bot/rusty-v8-update-${{ inputs.v8_version }}
           GH_TOKEN: ${{ github.token }}
