@@ -8,7 +8,7 @@ fi
 
 BUNDLE_DIR=$1
 
-for required in codex codex-exec libc++_shared.so; do
+for required in codex codex-exec codex-code-mode-host libc++_shared.so; do
   if [ ! -f "$BUNDLE_DIR/$required" ]; then
     echo "missing bundle artifact: $BUNDLE_DIR/$required" >&2
     exit 1
@@ -36,12 +36,14 @@ done
 
 CODEX_SHA256=$(sha256sum "$BUNDLE_DIR/codex" | awk '{print $1}')
 CODEX_EXEC_SHA256=$(sha256sum "$BUNDLE_DIR/codex-exec" | awk '{print $1}')
+CODE_MODE_HOST_SHA256=$(sha256sum "$BUNDLE_DIR/codex-code-mode-host" | awk '{print $1}')
 LIBCXX_SHA256=$(sha256sum "$BUNDLE_DIR/libc++_shared.so" | awk '{print $1}')
 
 MANIFEST_PATH="$BUNDLE_DIR/manifest.json"
 WORKFLOW_NAME="$WORKFLOW_NAME" \
 CODEX_SHA256="$CODEX_SHA256" \
 CODEX_EXEC_SHA256="$CODEX_EXEC_SHA256" \
+CODE_MODE_HOST_SHA256="$CODE_MODE_HOST_SHA256" \
 LIBCXX_SHA256="$LIBCXX_SHA256" \
 python3 - "$MANIFEST_PATH" <<'PY'
 import json
@@ -85,11 +87,13 @@ payload = {
         "files": [
             "codex",
             "codex-exec",
+            "codex-code-mode-host",
             "libc++_shared.so",
         ],
         "sha256": {
             "codex": os.environ["CODEX_SHA256"],
             "codex-exec": os.environ["CODEX_EXEC_SHA256"],
+            "codex-code-mode-host": os.environ["CODE_MODE_HOST_SHA256"],
             "libc++_shared.so": os.environ["LIBCXX_SHA256"],
         },
     },
@@ -111,6 +115,7 @@ PY
 sha256sum \
   "$BUNDLE_DIR/codex" \
   "$BUNDLE_DIR/codex-exec" \
+  "$BUNDLE_DIR/codex-code-mode-host" \
   "$BUNDLE_DIR/libc++_shared.so" \
   "$BUNDLE_DIR/manifest.json" \
   > "$BUNDLE_DIR/sha256sums.txt"

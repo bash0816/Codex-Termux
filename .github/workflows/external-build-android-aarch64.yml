@@ -17,6 +17,21 @@ on:
         description: Source ref to build
         required: true
         type: string
+      rusty_v8_release_tag:
+        description: 'Optional override for the rusty_v8 Android release tag to fetch (e.g. "rusty-v8-v150.4.0-sandbox"). Leave empty to use the tag resolved from third_party/v8/android-artifacts.toml on this ref (normal behavior). When set, rusty_v8_expect_archive_sha256 and rusty_v8_expect_binding_sha256 are both required.'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_archive_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of librusty_v8_release_aarch64-linux-android.a.gz for that tag (the manifest checksums describe a different, canonical artifact and cannot be used here).'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_binding_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of src_binding_release_aarch64-linux-android.rs for that tag.'
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -221,8 +236,16 @@ jobs:
           _fetch_rusty_v8() {
             local helper="$1"
             local source_root_arg="$2"
+            local release_tag_arg="$3"
+            local expect_archive_sha_arg="$4"
+            local expect_binding_sha_arg="$5"
             local fetch_env="$RUNNER_TEMP/rusty-v8.env"
-            python3 "$helper" ${source_root_arg:+--source-root "$source_root_arg"} > "$fetch_env"
+            python3 "$helper" \
+              ${source_root_arg:+--source-root "$source_root_arg"} \
+              ${release_tag_arg:+--release-tag "$release_tag_arg"} \
+              ${expect_archive_sha_arg:+--expect-archive-sha256 "$expect_archive_sha_arg"} \
+              ${expect_binding_sha_arg:+--expect-binding-sha256 "$expect_binding_sha_arg"} \
+              > "$fetch_env"
 
             RUSTY_V8_ARCHIVE=""
             RUSTY_V8_SRC_BINDING_PATH=""
@@ -252,7 +275,7 @@ jobs:
 
           if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
             # DioNanos fork: use in-source helper (reads fork's own manifest)
-            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" ""
+            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" "" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
             echo "V8_ARTIFACT_MODE=helper-present" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=source-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           else
@@ -261,7 +284,7 @@ jobs:
               exit 1
             fi
             # openai/codex: use host-repo helper (reads private repo manifest)
-            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo"
+            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
             echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
             echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
           fi
@@ -857,6 +880,9 @@ jobs:
           echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
           echo "Building codex-exec..."
           cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-exec 2>&1 | tee /tmp/build-codex-exec.log
+          echo "=== memory/disk after codex-exec ===" && free -h && df -h /home/runner /tmp
+          echo "Building codex-code-mode-host..."
+          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-code-mode-host 2>&1 | tee /tmp/build-codex-code-mode-host.log
           echo "=== memory/disk after build ===" && free -h && df -h /home/runner /tmp
 
       - name: Assemble bundle and manifest
@@ -867,21 +893,27 @@ jobs:
 
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex" "$BUNDLE_DIR/codex"
           cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-exec" "$BUNDLE_DIR/codex-exec"
+          cp "source-repo/codex-rs/target/${ANDROID_TARGET}/release/codex-code-mode-host" "$BUNDLE_DIR/codex-code-mode-host"
           cp "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$BUNDLE_DIR/libc++_shared.so"
 
           NDK_LLVM_STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
           CODEX_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex")
           CODEX_EXEC_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex-exec")
+          CODE_MODE_HOST_SIZE_BEFORE=$(wc -c < "$BUNDLE_DIR/codex-code-mode-host")
 
           "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex"
           "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex-exec"
+          "$NDK_LLVM_STRIP" --strip-all "$BUNDLE_DIR/codex-code-mode-host"
 
           CODEX_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex")
           CODEX_EXEC_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex-exec")
+          CODE_MODE_HOST_SIZE_AFTER=$(wc -c < "$BUNDLE_DIR/codex-code-mode-host")
           awk -v b="$CODEX_SIZE_BEFORE" -v a="$CODEX_SIZE_AFTER" \
             'BEGIN { printf "codex: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
           awk -v b="$CODEX_EXEC_SIZE_BEFORE" -v a="$CODEX_EXEC_SIZE_AFTER" \
             'BEGIN { printf "codex-exec: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
+          awk -v b="$CODE_MODE_HOST_SIZE_BEFORE" -v a="$CODE_MODE_HOST_SIZE_AFTER" \
+            'BEGIN { printf "codex-code-mode-host: %d -> %d bytes (%.1f%% reduction)\n", b, a, (b-a)/b*100 }'
 
           SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
           SOURCE_REPOSITORY_INPUT="${{ inputs.source_repository }}" \
@@ -978,6 +1010,7 @@ jobs:
           find "$BUNDLE_DIR" -maxdepth 1 -type f -print | sort
           test -f "$BUNDLE_DIR/codex"
           test -f "$BUNDLE_DIR/codex-exec"
+          test -f "$BUNDLE_DIR/codex-code-mode-host"
           test -f "$BUNDLE_DIR/libc++_shared.so"
           test -f "$BUNDLE_DIR/manifest.json"
           test -f "$BUNDLE_DIR/sha256sums.txt"
@@ -990,6 +1023,7 @@ jobs:
           path: |
             /tmp/build-codex-cli.log
             /tmp/build-codex-exec.log
+            /tmp/build-codex-code-mode-host.log
           if-no-files-found: warn
 
       - name: Upload artifact bundle
