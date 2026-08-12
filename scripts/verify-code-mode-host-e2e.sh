@@ -40,7 +40,6 @@ CODEX_HOME_TEST_NORMAL=$(mktemp -d "$TMP_BASE/codex-home-e2e-normal.XXXXXX")
 cp -r "$HOME/.codex/." "$CODEX_HOME_TEST/"
 cp -r "$HOME/.codex/." "$CODEX_HOME_TEST_NORMAL/"
 
-STAGED=0
 cleanup() {
   mv "$BIN_DIR/codex-code-mode-host.real" "$BIN_DIR/codex-code-mode-host" 2>/dev/null || true
   rm -rf "$CODEX_HOME_TEST" "$CODEX_HOME_TEST_NORMAL"
@@ -92,7 +91,6 @@ printf '{"run_id":"%s","invoked_at":"%s","pid":%s,"executable":"%s","args":"%s"}
 exec "\$(dirname "\$0")/codex-code-mode-host.real" "\$@"
 WRAPEOF
 chmod +x "$BIN_DIR/codex-code-mode-host"
-STAGED=1
 
 PROMPT="Run the shell command: echo VERIFY_${TOKEN}_END
 Then report exactly what stdout printed, nothing else."
