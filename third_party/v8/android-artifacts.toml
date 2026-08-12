@@ -3,6 +3,6 @@ source_tag = "v150.4.0"
 
 [versions."150.4.0".targets."aarch64-linux-android"]
 repository = "bash0816/Codex-Termux"
-release_tag = "rusty-v8-v150.4.0"
-archive_sha256 = "2acc4acb34a13fde2c10e7119d9e919a12ca8ebd58dfe1e8f2cc07cbd8559f2f"
-binding_sha256 = "ad5715b2b36ba73a85faba2bfb390575cdfe1b0e7d782da85f1e46dce5adb395"
+release_tag = "rusty-v8-v150.4.0-sandbox"
+archive_sha256 = "72678a654f217aacc977723d475fcc4f1ec7d69f98749fd943064e2291eb376e"
+binding_sha256 = "7c7e2bb2fa4a41879c20175dde2fe7085e6fed9c3ee1f97338a13b74575cca59"
