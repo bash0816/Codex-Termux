@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   record-run-id:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.source_repository == 'openai/codex'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -103,16 +103,6 @@ jobs:
         run: |
           set -eu
           case "${{ inputs.source_repository }}" in
-            DioNanos/codex-termux)
-              case "${{ inputs.source_ref }}" in
-                main|dev|staging|feature/*|v*|rust-v*)
-                  ;;
-                *)
-                  echo "unsupported source_ref for fork line: ${{ inputs.source_ref }}" >&2
-                  exit 1
-                  ;;
-              esac
-              ;;
             openai/codex)
               case "${{ inputs.source_ref }}" in
                 rust-v0.131.0|rust-v0.133.0|rust-v0.13[4-9].*|rust-v0.1[4-9][0-9]*)
@@ -143,6 +133,12 @@ jobs:
           ref: ${{ inputs.source_ref }}
           fetch-depth: 1
           path: source-repo
+
+      - name: Save pre-patch Cargo.lock for later diff
+        run: |
+          set -eu
+          sha256sum source-repo/codex-rs/Cargo.lock
+          cp source-repo/codex-rs/Cargo.lock /tmp/cargo-lock-before.txt
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v7
@@ -273,21 +269,9 @@ jobs:
             } >> "$GITHUB_ENV"
           }
 
-          if [ -f source-repo/scripts/fetch_rusty_v8_android.py ]; then
-            # DioNanos fork: use in-source helper (reads fork's own manifest)
-            _fetch_rusty_v8 "source-repo/scripts/fetch_rusty_v8_android.py" "" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
-            echo "V8_ARTIFACT_MODE=helper-present" >> "$GITHUB_ENV"
-            echo "V8_ARTIFACT_SOURCE=source-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
-          else
-            if [ "${{ inputs.source_repository }}" = "DioNanos/codex-termux" ]; then
-              echo "fork helper missing unexpectedly" >&2
-              exit 1
-            fi
-            # openai/codex: use host-repo helper (reads private repo manifest)
-            _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
-            echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
-            echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
-          fi
+          _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag }}" "${{ inputs.rusty_v8_expect_archive_sha256 }}" "${{ inputs.rusty_v8_expect_binding_sha256 }}"
+          echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
+          echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
 
       - name: Apply Android build patches (upstream openai/codex only)
         if: inputs.source_repository == 'openai/codex'
@@ -350,6 +334,20 @@ jobs:
               print('patched core/Cargo.toml with Android vendored OpenSSL block')
           else:
               raise SystemExit('ERROR: musl openssl-sys block not found in core/Cargo.toml')
+          INNERPY
+
+          # Patch: add vendored OpenSSL for http-client (Android target, codex-http-client crate)
+          python3 - <<'INNERPY'
+          from pathlib import Path
+          path = Path('source-repo/codex-rs/http-client/Cargo.toml')
+          text = path.read_text(encoding='utf-8')
+          android_block = '\n[target.aarch64-linux-android.dependencies]\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          if 'target.aarch64-linux-android' in text:
+              print('http-client: Android vendored OpenSSL already present - skip')
+          else:
+              text = text.rstrip('\n') + '\n' + android_block
+              path.write_text(text, encoding='utf-8')
+              print('patched http-client/Cargo.toml with Android vendored OpenSSL block')
           INNERPY
 
           # Patch: fix startup lock for Android (acquire_app_server_startup_lock)
@@ -833,17 +831,29 @@ jobs:
           WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
           if [ -f "$WORKSPACE_CARGO" ]; then
             python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
-            echo "Verifying: openssl-sys should not be in dependency graph"
-            cd source-repo/codex-rs && cargo tree --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
           fi
+          cd source-repo/codex-rs
+          cargo generate-lockfile
+          diff /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
+          echo "=== Cargo.lock diff after patch (see /tmp/cargo-lock-diff.txt) ==="
+          wc -l /tmp/cargo-lock-diff.txt
+          echo "Verifying: openssl-sys should not be in dependency graph"
+          cargo tree --locked --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
 
       - name: Diagnose openssl-sys dependency path
         run: |
           set -eu
           cd source-repo/codex-rs
-          echo '=== openssl-sys dependency tree ==='
-          cargo tree --target aarch64-linux-android -p codex-cli -i openssl-sys 2>&1 || echo 'openssl-sys not found in codex-cli'
-          cargo tree --target aarch64-linux-android -p codex-exec -i openssl-sys 2>&1 || echo 'openssl-sys not found in codex-exec'
+          for pkg in codex-cli codex-exec codex-code-mode-host; do
+            echo "=== openssl-sys FEATURES for $pkg ==="
+            OUT=$(cargo tree --locked --target aarch64-linux-android -p "$pkg" -i openssl-sys \
+              --format "{p} FEATURES=[{f}]" 2>&1) || { echo "openssl-sys not found in $pkg"; continue; }
+            echo "$OUT"
+            echo "$OUT" | head -1 | grep -q 'vendored' || {
+              echo "ERROR: openssl-sys resolved for $pkg WITHOUT the vendored feature" >&2
+              exit 1
+            }
+          done
           echo '=== workspace openssl references ==='
           grep -r 'openssl\|native-tls' --include=Cargo.toml . | grep -v 'target/' | grep -v '.cargo/' || true
 
@@ -875,15 +885,29 @@ jobs:
             && echo '__clear_cache: confirmed in RT_LIB' \
             || echo '__clear_cache: not found in RT_LIB (may still link via other path)'
           export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=lld -C debuginfo=0 -C link-arg=$RT_LIB"
-          echo "Building codex-cli..."
-          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-cli 2>&1 | tee /tmp/build-codex-cli.log
-          echo "=== memory/disk after codex-cli ===" && free -h && df -h /home/runner /tmp
-          echo "Building codex-exec..."
-          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-exec 2>&1 | tee /tmp/build-codex-exec.log
-          echo "=== memory/disk after codex-exec ===" && free -h && df -h /home/runner /tmp
-          echo "Building codex-code-mode-host..."
-          cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release -p codex-code-mode-host 2>&1 | tee /tmp/build-codex-code-mode-host.log
-          echo "=== memory/disk after build ===" && free -h && df -h /home/runner /tmp
+          BUILD_DIR="target/${ANDROID_TARGET}/release/build"
+          mkdir -p "$BUILD_DIR"
+          for pkg in codex-cli codex-exec codex-code-mode-host; do
+            echo "Building ${pkg}..."
+            BEFORE=$(find "$BUILD_DIR" -maxdepth 1 -iname "openssl-sys-*" 2>/dev/null | sort)
+            cargo +"${RUST_VERSION}" build --jobs=1 --target "${ANDROID_TARGET}" --release --locked -p "$pkg" 2>&1 | tee "/tmp/build-${pkg}.log"
+            AFTER=$(find "$BUILD_DIR" -maxdepth 1 -iname "openssl-sys-*" 2>/dev/null | sort)
+            NEW_DIRS=$(comm -13 <(echo "$BEFORE") <(echo "$AFTER"))
+            if [ -n "$NEW_DIRS" ]; then
+              for d in $NEW_DIRS; do
+                if [ -f "$d/output" ] && grep -q "cargo:vendored=1" "$d/output"; then
+                  echo "openssl-sys vendored build confirmed for ${pkg} (${d})"
+                else
+                  echo "ERROR: openssl-sys build for ${pkg} did not use vendored path (${d})" >&2
+                  cat "$d/output" 2>/dev/null
+                  exit 1
+                fi
+              done
+            else
+              echo "openssl-sys build reused cached artifact for ${pkg} (no new build dir)"
+            fi
+            echo "=== memory/disk after ${pkg} ===" && free -h && df -h /home/runner /tmp
+          done
 
       - name: Assemble bundle and manifest
         run: |
