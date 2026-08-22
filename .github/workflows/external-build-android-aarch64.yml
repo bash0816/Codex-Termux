@@ -849,7 +849,7 @@ jobs:
             OUT=$(cargo tree --locked --target aarch64-linux-android -p "$pkg" -i openssl-sys \
               --format "{p} FEATURES=[{f}]" 2>&1) || { echo "openssl-sys not found in $pkg"; continue; }
             echo "$OUT"
-            echo "$OUT" | head -1 | grep -q 'vendored' || {
+            echo "$OUT" | grep '^openssl-sys ' | head -1 | grep -q 'vendored' || {
               echo "ERROR: openssl-sys resolved for $pkg WITHOUT the vendored feature" >&2
               exit 1
             }
