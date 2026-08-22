@@ -832,13 +832,21 @@ jobs:
           if [ -f "$WORKSPACE_CARGO" ]; then
             python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
           fi
+          python3 "host-repo/scripts/patch-cargo-lock-deps.py" "source-repo/codex-rs/Cargo.lock"
           cd source-repo/codex-rs
-          cargo generate-lockfile
           diff /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
           echo "=== Cargo.lock diff after patch (see /tmp/cargo-lock-diff.txt) ==="
           wc -l /tmp/cargo-lock-diff.txt
-          echo "Verifying: openssl-sys should not be in dependency graph"
-          cargo tree --locked --target aarch64-linux-android -i openssl-sys 2>&1 | head -5 || echo "openssl-sys not found (expected)"
+          OUT=$(cargo tree --locked --target aarch64-linux-android -p codex-http-client -i openssl-sys \
+            --format "{p} FEATURES=[{f}]" 2>&1) || {
+            echo "ERROR: openssl-sys not found for codex-http-client after lockfile patch" >&2
+            exit 1
+          }
+          echo "$OUT"
+          echo "$OUT" | grep '^openssl-sys ' | head -1 | grep -q 'vendored' || {
+            echo "ERROR: openssl-sys resolved for codex-http-client WITHOUT the vendored feature" >&2
+            exit 1
+          }
 
       - name: Diagnose openssl-sys dependency path
         run: |
