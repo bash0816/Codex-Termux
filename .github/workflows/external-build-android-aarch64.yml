@@ -837,9 +837,11 @@ jobs:
           diff /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
           echo "=== Cargo.lock diff after patch (see /tmp/cargo-lock-diff.txt) ==="
           wc -l /tmp/cargo-lock-diff.txt
+          set +e
           OUT=$(cargo tree --locked --target aarch64-linux-android -p codex-http-client -i openssl-sys \
             --format "{p} FEATURES=[{f}]" 2>&1)
           STATUS=$?
+          set -e
           echo "$OUT"
           if [ "$STATUS" -ne 0 ]; then
             echo "ERROR: cargo tree failed for codex-http-client (exit $STATUS)" >&2
