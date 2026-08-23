@@ -126,6 +126,13 @@ def check(before, after, expected_workspace_version):
                 f"ERROR: local package {name} version {ap.get('version')!r} does not "
                 f"match expected workspace version {expected_workspace_version!r}"
             )
+        b_rest = {kk: vv for kk, vv in bp.items() if kk not in ('version', 'dependencies')}
+        a_rest = {kk: vv for kk, vv in ap.items() if kk not in ('version', 'dependencies')}
+        if b_rest != a_rest:
+            return (
+                f"ERROR: local package {name} non-version/dependencies fields changed: "
+                f"before={b_rest} after={a_rest}"
+            )
         b_deps = Counter(bp.get('dependencies', []))
         a_deps = Counter(ap.get('dependencies', []))
         if b_deps == a_deps:
