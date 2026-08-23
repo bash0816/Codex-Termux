@@ -838,11 +838,13 @@ jobs:
           echo "=== Cargo.lock diff after patch (see /tmp/cargo-lock-diff.txt) ==="
           wc -l /tmp/cargo-lock-diff.txt
           OUT=$(cargo tree --locked --target aarch64-linux-android -p codex-http-client -i openssl-sys \
-            --format "{p} FEATURES=[{f}]" 2>&1) || {
-            echo "ERROR: openssl-sys not found for codex-http-client after lockfile patch" >&2
-            exit 1
-          }
+            --format "{p} FEATURES=[{f}]" 2>&1)
+          STATUS=$?
           echo "$OUT"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: cargo tree failed for codex-http-client (exit $STATUS)" >&2
+            exit 1
+          fi
           echo "$OUT" | grep '^openssl-sys ' | head -1 | grep -q 'vendored' || {
             echo "ERROR: openssl-sys resolved for codex-http-client WITHOUT the vendored feature" >&2
             exit 1
