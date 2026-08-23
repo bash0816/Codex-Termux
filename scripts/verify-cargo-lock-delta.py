@@ -8,117 +8,150 @@ This exists because a full `cargo generate-lockfile` was drifting pinned
 alpha versions of unrelated crates (rama-*) to newer stable releases that
 require a newer rustc than the Android build environment has. Using
 `cargo fetch` avoids a full re-resolve, but its result still needs to be
-checked: it's expected to change only two things relative to the pre-patch
-Cargo.lock:
+checked.
 
-  1. Every local workspace member (no `source` field, i.e. a path
-     dependency) has its `version` bumped, uniformly, to match
-     `[workspace.package].version` in the patched Cargo.toml (harmless
-     metadata; local packages aren't published so this doesn't affect
-     dependency resolution).
-  2. `codex-http-client` gains a dependency on `openssl-sys`, and
-     `codex-thread-store` gains a dependency on `libc` (these are the
-     lockfile-side effects of Cargo.toml patches applied earlier in the
-     workflow that add Android-only vendored-OpenSSL / real-flock
-     dependencies).
+Design note (2026-08-23): an earlier version of this script compared each
+external package's *entire* lockfile entry, including its `dependencies`
+edge list, and only allowed `windows-registry` to fully vanish. That failed
+in CI: the reqwest TLS patch (`default-features = false`) deactivates
+optional features transitively, which prunes dependency edges (e.g.
+`hyper-util` losing its `system-configuration` / `windows-registry` edges,
+`reqwest` losing `encoding_rs` / `mime`) from *many* packages, not just
+`windows-registry` itself. Verified experimentally (both with and without
+`--target`) that this is a pure function of the feature graph, unrelated to
+Android target pruning: platform-independent crates like `mime` and
+`encoding_rs` were pruned too, which a target-pruning theory cannot explain.
 
-Everything else must be byte-for-byte identical, with one narrow exception:
-`windows-registry` (a Windows-only crate not needed for the
-aarch64-linux-android target) is allowed to fully disappear when `cargo
-fetch --target aarch64-linux-android` prunes target-irrelevant packages.
+Since each external package's content is already pinned by
+`(name, version, source, checksum)`, its dependency edge list carries no
+additional drift information once version+checksum are fixed -- it's fully
+determined by the feature graph, which is expected to shift as Cargo.toml
+patches change feature flags. So this script does NOT compare dependency
+edges for external packages at all. It only checks:
 
-Any other addition, removal, or version/dependency change --- most
-importantly to any `rama-*` crate --- is treated as fail-closed: the check
-raises/exits non-zero rather than silently accepting an unexpected delta.
+  1. For any external `(name, source, version)` present in both the
+     pre-fetch and post-fetch lockfile, the `checksum` must be identical
+     (catches tampering / registry corruption, not legitimate re-resolution).
+  2. `rama-*` crates get an extra, explicit safety net: the full
+     `(name, version, source)` set must be identical before and after,
+     independent of the general external-package rule above. This is the
+     actual crate family that caused the original bug (alpha pins drifting
+     to newer stable releases requiring a newer rustc than the Android
+     build environment has), so it stays fail-closed even though the
+     general external-package rule was relaxed.
+  3. Local workspace members (no `source` field, i.e. path dependencies):
+     the set of package names must be unchanged, each name must appear
+     exactly once in both lockfiles (no duplicates), every local package's
+     `version` must equal `[workspace.package].version` from the patched
+     Cargo.toml (the uniform bump is harmless: local packages aren't
+     published, so it doesn't affect dependency resolution), and
+     `dependencies` may only change by *exactly* the two expected
+     additions below -- any other dependency addition or any removal is
+     rejected.
+
+New external packages/versions appearing, and existing external
+packages/versions fully disappearing, are both allowed without comment:
+this is normal feature-graph re-resolution, not lockfile drift.
 """
-import os
 import sys
 import tomllib
 from collections import Counter
 
-ALLOWED_FULL_REMOVALS = {
-    ("windows-registry", "registry+https://github.com/rust-lang/crates.io-index"): frozenset({"0.6.1"}),
-}
 EXPECTED_LOCAL_DEPENDENCY_ADDITIONS = {
     "codex-http-client": {"openssl-sys"},
     "codex-thread-store": {"libc"},
 }
 
 
-def normalize_entry(p):
-    items = []
-    for k, v in p.items():
-        if k == 'dependencies':
-            v = tuple(sorted(Counter(v).items()))
-        items.append((k, v))
-    return tuple(sorted(items))
-
-
 def check(before, after, expected_workspace_version):
     def pkey(p):
         return (p['name'], p.get('source'))
 
-    before_by_key = {}
+    before_ext = {}
     for p in before['package']:
-        before_by_key.setdefault(pkey(p), []).append(p)
-    after_by_key = {}
+        if p.get('source'):
+            before_ext.setdefault(pkey(p), {})[p['version']] = p.get('checksum')
+    after_ext = {}
     for p in after['package']:
-        after_by_key.setdefault(pkey(p), []).append(p)
+        if p.get('source'):
+            after_ext.setdefault(pkey(p), {})[p['version']] = p.get('checksum')
 
-    all_keys = set(before_by_key) | set(after_by_key)
-    for k in all_keys:
-        name, source = k
-        b_list = before_by_key.get(k, [])
-        a_list = after_by_key.get(k, [])
+    for k, before_by_version in before_ext.items():
+        after_by_version = after_ext.get(k, {})
+        for version, checksum in before_by_version.items():
+            if version in after_by_version and after_by_version[version] != checksum:
+                return (
+                    f"ERROR: external package {k[0]} {version} (source={k[1]}) "
+                    f"checksum changed"
+                )
 
-        if source is not None:
-            b_norm = Counter(normalize_entry(p) for p in b_list)
-            a_norm = Counter(normalize_entry(p) for p in a_list)
-            if b_norm == a_norm:
-                continue
-            if not a_list:
-                b_versions = frozenset(p['version'] for p in b_list)
-                allowed_versions = ALLOWED_FULL_REMOVALS.get((name, source))
-                if allowed_versions is not None and b_versions == allowed_versions:
-                    continue
-                return (
-                    f"ERROR: external package {name} (source={source}) fully disappeared "
-                    f"with versions {sorted(b_versions)}, not an allowed exact-version removal"
-                )
-            return f"ERROR: external package {name} (source={source}) entries changed"
-        else:
-            if len(b_list) != 1 or len(a_list) != 1:
-                return (
-                    f"ERROR: local package {name} has unexpected duplicate/missing entries: "
-                    f"before={len(b_list)} after={len(a_list)}"
-                )
-            bp, ap = b_list[0], a_list[0]
-            if ap.get('version') != expected_workspace_version:
-                return (
-                    f"ERROR: local package {name} version {ap.get('version')!r} does not match "
-                    f"expected workspace version {expected_workspace_version!r}"
-                )
-            b_rest = {kk: vv for kk, vv in bp.items() if kk not in ('version', 'dependencies')}
-            a_rest = {kk: vv for kk, vv in ap.items() if kk not in ('version', 'dependencies')}
-            if b_rest != a_rest:
-                return f"ERROR: local package {name} non-version/dependencies fields changed"
-            b_deps = Counter(bp.get('dependencies', []))
-            a_deps = Counter(ap.get('dependencies', []))
-            if b_deps == a_deps:
-                continue
-            added = a_deps - b_deps
-            removed = b_deps - a_deps
-            allowed_additions = EXPECTED_LOCAL_DEPENDENCY_ADDITIONS.get(name, set())
-            for dep, cnt in added.items():
-                if dep not in allowed_additions or cnt != 1:
-                    return f"ERROR: local package {name} gained unexpected dependency: {dep} x{cnt}"
-            if removed:
-                return f"ERROR: local package {name} lost dependencies: {dict(removed)}"
+    rama_before = {
+        (p['name'], p.get('version'), p.get('source'))
+        for p in before['package']
+        if p['name'].startswith('rama-') or p['name'] == 'rama'
+    }
+    rama_after = {
+        (p['name'], p.get('version'), p.get('source'))
+        for p in after['package']
+        if p['name'].startswith('rama-') or p['name'] == 'rama'
+    }
+    if rama_before != rama_after:
+        return f"ERROR: rama-* package set changed: before={rama_before} after={rama_after}"
+
+    before_local_by_name = {}
+    for p in before['package']:
+        if not p.get('source'):
+            before_local_by_name.setdefault(p['name'], []).append(p)
+    after_local_by_name = {}
+    for p in after['package']:
+        if not p.get('source'):
+            after_local_by_name.setdefault(p['name'], []).append(p)
+
+    if set(before_local_by_name) != set(after_local_by_name):
+        added = set(after_local_by_name) - set(before_local_by_name)
+        removed = set(before_local_by_name) - set(after_local_by_name)
+        return f"ERROR: local workspace package set changed: added={added} removed={removed}"
+
+    for name in before_local_by_name:
+        b_entries = before_local_by_name[name]
+        a_entries = after_local_by_name[name]
+        if len(b_entries) != 1 or len(a_entries) != 1:
+            return (
+                f"ERROR: local package {name} has unexpected duplicate/missing "
+                f"entries: before={len(b_entries)} after={len(a_entries)}"
+            )
+        bp, ap = b_entries[0], a_entries[0]
+        if ap.get('version') != expected_workspace_version:
+            return (
+                f"ERROR: local package {name} version {ap.get('version')!r} does not "
+                f"match expected workspace version {expected_workspace_version!r}"
+            )
+        b_rest = {kk: vv for kk, vv in bp.items() if kk not in ('version', 'dependencies')}
+        a_rest = {kk: vv for kk, vv in ap.items() if kk not in ('version', 'dependencies')}
+        if b_rest != a_rest:
+            return (
+                f"ERROR: local package {name} non-version/dependencies fields changed: "
+                f"before={b_rest} after={a_rest}"
+            )
+        b_deps = Counter(bp.get('dependencies', []))
+        a_deps = Counter(ap.get('dependencies', []))
+        if b_deps == a_deps:
+            continue
+        added = a_deps - b_deps
+        removed = b_deps - a_deps
+        allowed_additions = EXPECTED_LOCAL_DEPENDENCY_ADDITIONS.get(name, set())
+        for dep, cnt in added.items():
+            if dep not in allowed_additions or cnt != 1:
+                return f"ERROR: local package {name} gained unexpected dependency: {dep} x{cnt}"
+        if removed:
+            return f"ERROR: local package {name} lost dependencies: {dict(removed)}"
 
     return None
 
 
 def main():
+    import os
+
     if len(sys.argv) != 3:
         print(f"usage: {sys.argv[0]} <before-lockfile> <after-lockfile>", file=sys.stderr)
         sys.exit(1)
@@ -139,9 +172,9 @@ def main():
         print(err, file=sys.stderr)
         sys.exit(1)
     print(
-        "Cargo.lock verified: only the two expected local dependency additions and the "
-        "uniform workspace version bump were applied; all external packages unchanged "
-        "except the whitelisted target-specific removal"
+        "Cargo.lock verified: no external package checksum changed, rama-* set "
+        "unchanged, local workspace package set unchanged (version as a uniform bump, "
+        "dependencies limited to the two expected additions)"
     )
 
 
