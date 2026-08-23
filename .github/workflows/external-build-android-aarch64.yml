@@ -166,8 +166,8 @@ jobs:
           SOURCE_REF_INPUT: ${{ inputs.source_ref }}
         run: |
           set -eu
-          python3 - <<'PY'
-          import pathlib, tomllib, re, os
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import pathlib, tomllib, re, os, sys
 
           path = pathlib.Path("source-repo/codex-rs/Cargo.toml")
           data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -175,8 +175,9 @@ jobs:
           expected_ref = os.environ.get("SOURCE_REF_INPUT", "")
           m = re.match(r"rust-v(.+)", expected_ref)
           if m and version != m.group(1):
-              raise SystemExit(f"unexpected workspace.package.version: {version} (expected {m.group(1)})")
-          print(f"workspace.package.version={version}")
+              print(f"unexpected workspace.package.version: {version} (expected {m.group(1)})", file=sys.stderr)
+              raise SystemExit(1)
+          print(f"WORKSPACE_VERSION={version}")
           PY
 
       - name: Add swap space
@@ -832,11 +833,13 @@ jobs:
           if [ -f "$WORKSPACE_CARGO" ]; then
             python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
           fi
-          python3 "host-repo/scripts/patch-cargo-lock-deps.py" "source-repo/codex-rs/Cargo.lock"
           cd source-repo/codex-rs
-          diff /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
-          echo "=== Cargo.lock diff after patch (see /tmp/cargo-lock-diff.txt) ==="
+          cargo fetch --target aarch64-linux-android
+          echo "=== Cargo.lock diff after cargo fetch (see /tmp/cargo-lock-diff.txt) ==="
+          diff -u /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
           wc -l /tmp/cargo-lock-diff.txt
+          python3 "$GITHUB_WORKSPACE/host-repo/scripts/verify-cargo-lock-delta.py" \
+            /tmp/cargo-lock-before.txt Cargo.lock
           set +e
           OUT=$(cargo tree --locked --target aarch64-linux-android -p codex-http-client -i openssl-sys \
             --format "{p} FEATURES=[{f}]" 2>&1)
