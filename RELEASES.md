@@ -1,3 +1,21 @@
+## 0.149.1 — 2026-08-25
+
+upstream openai/codex 0.149.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.149.0...rust-v0.149.1
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.149.1
+codex --version
+```
 ## 0.149.0 — 2026-08-24
 
 upstream openai/codex 0.149.0 追従。
