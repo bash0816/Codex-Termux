@@ -1,3 +1,24 @@
+## 0.150.1 — 2026-08-28
+
+upstream openai/codex 0.150.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+- Remote compaction now counts retained images toward its token budget by default, trimming older images as needed. (#41003)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.150.0...rust-v0.150.1
+
+- #41003 Backport retained-image compaction budgeting to 0.150 @rhan-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.150.1
+codex --version
+```
 ## 0.149.1 — 2026-08-25
 
 upstream openai/codex 0.149.1 追従。
