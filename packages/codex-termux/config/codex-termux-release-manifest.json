@@ -1,9 +1,9 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "staged_for_publish",
+  "canonical_package_status": "published",
+  "public_distribution_status": "published",
   "support_status": "active",
-  "latest_audited_version": "0.150.1",
+  "latest_audited_version": "0.151.0",
   "latest_candidate_version": "0.151.0",
   "previous_stable_version": "0.150.1",
   "candidate_state": "published",
@@ -32,21 +32,22 @@
     "0.148.0",
     "0.149.0",
     "0.149.1",
-    "0.150.1"
+    "0.150.1",
+    "0.151.0"
   ],
   "historical_baselines": [
     "0.131.0",
     "0.128.0"
   ],
   "gate_summary": "0.144.3 published as @latest. Build run 29282002840.",
-  "rollback_version": "0.149.1",
+  "rollback_version": "0.150.1",
   "install_command": "npm install -g @bash0816/codex-termux@latest",
   "update_strategy": "npm_reinstall_audited_package",
   "manifest_url": "https://raw.githubusercontent.com/bash0816/Codex-Termux/main/config/codex-termux-release-manifest.json",
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-08-30T14:23:13.014Z",
+  "updated_at": "2026-08-30T17:18:17.824Z",
   "platform": "android",
   "arch": "arm64",
   "planned_wrapper_package": {
