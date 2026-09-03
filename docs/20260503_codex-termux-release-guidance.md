@@ -6,8 +6,8 @@
 - the package is published
 - public support is available
 - package name: `@bash0816/codex-termux`
-- latest audited version: `0.152.0`
-- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`, `0.144.3`, `0.144.4`, `0.144.5`, `0.144.6`, `0.145.0`, `0.146.0`, `0.146.1`, `0.147.0`, `0.148.0`, `0.149.0`, `0.149.1`, `0.150.1`, `0.151.0`, `0.152.0`
+- latest audited version: `0.152.1`
+- tracked versions: `0.141.0`, `0.140.0`, `0.139.0`, `0.137.0`, `0.131.1`, `0.142.0`, `0.142.2`, `0.142.3`, `0.142.4`, `0.142.5`, `0.143.0`, `0.144.1`, `0.144.3`, `0.144.4`, `0.144.5`, `0.144.6`, `0.145.0`, `0.146.0`, `0.146.1`, `0.147.0`, `0.148.0`, `0.149.0`, `0.149.1`, `0.150.1`, `0.151.0`, `0.152.0`, `0.152.1`
 
 ## Current Scope
 
@@ -37,7 +37,7 @@ Do not install the upstream `@openai/codex` package directly on Termux.
 ## Rollback
 
 ```sh
-npm install -g @bash0816/codex-termux@0.151.0
+npm install -g @bash0816/codex-termux@0.152.0
 ```
 
 ## Source Of Truth
