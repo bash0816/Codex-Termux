@@ -1,3 +1,20 @@
+## 0.152.1 — 2026-09-04
+
+upstream openai/codex 0.152.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+- Guardian approval review now honors Node REPL policies provided through model metadata.
+
+**Full Changelog**: https://github.com/openai/codex/compare/rust-v0.152.0...rust-v0.152.1
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.152.1
+codex --version
+```
 ## 0.152.0 — 2026-09-02
 
 upstream openai/codex 0.152.0 追従。
