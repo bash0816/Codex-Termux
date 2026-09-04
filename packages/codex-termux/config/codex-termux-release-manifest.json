@@ -5,7 +5,7 @@
   "support_status": "active",
   "latest_audited_version": "0.152.1",
   "latest_candidate_version": "0.153.2",
-  "previous_stable_version": "0.152.0",
+  "previous_stable_version": "0.152.1",
   "candidate_state": "published",
   "candidate_state_status": "ready_to_publish",
   "tracked_versions": [
