@@ -1,3 +1,27 @@
+## 0.153.4 — 2026-09-06
+
+upstream openai/codex 0.153.4 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+
+- Fixed Astra’s visibility in the bundled model picker and made it the bundled default when no model is explicitly configured. (#42874)
+- Updated Astra’s guidance to use asynchronous questions only when the tool is available in the session. (#42878)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.153.3...rust-v0.153.4
+
+- #42874 [0.153 hotfix] Show Astra in bundled model picker @rhan-oai
+- #42878 [0.153 hotfix] Qualify Astra async-question guidance by tool availability @rhan-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.153.4
+codex --version
+```
 ## 0.153.2 — 2026-09-05
 
 upstream openai/codex 0.153.2 追従。
