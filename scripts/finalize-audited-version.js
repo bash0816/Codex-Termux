@@ -25,6 +25,7 @@ function computeFinalizedManifest(manifest, version) {
   updated.public_distribution_status = 'published';
   if (isVersionBump) {
     updated.rollback_version = previousAudited;
+    updated.previous_stable_version = version;
   }
   updated.latest_audited_version = version;
   const tracked = Array.isArray(manifest.tracked_versions) ? manifest.tracked_versions : [];
