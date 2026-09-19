@@ -59,7 +59,7 @@ from collections import Counter
 
 EXPECTED_LOCAL_DEPENDENCY_ADDITIONS = {
     "codex-http-client": {"openssl-sys"},
-    "codex-thread-store": {"libc"},
+    "codex-rollout": {"libc"},
 }
 
 
