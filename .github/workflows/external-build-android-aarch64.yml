@@ -521,20 +521,23 @@ jobs:
             exit "$STACK_STATUS"
           fi
 
-          # Patch: fix thread-store writer lock for Android via real flock() (libc FFI)
+          # Patch: fix rollout writer lock for Android via real flock() (libc FFI)
           # Rust std's File::lock()/try_lock() omit target_os = "android" from their
           # flock() allowlist (library/std/src/sys/fs/unix.rs), returning
           # ErrorKind::Unsupported without ever calling flock(2) -- even though flock(2)
           # itself works fine on this platform. This shim calls libc::flock() directly
           # on Android so writer-lock exclusivity is preserved exactly as on every other
           # target, instead of being silently dropped.
-          # writer_lock.rs is unchanged since rust-v0.146.1 -- the crash is new because
-          # rust-v0.147.0's local/mod.rs (acquire_writer_locks, renamed from
-          # acquire_paginated_writer_locks) removed the prior `ThreadHistoryMode::Legacy`
-          # skip, so the writer lock is now acquired unconditionally for every thread.
+          # writer_lock.rs was moved from thread-store/src/local/ to rollout/src/ in
+          # rust-v0.155.0 (commit 73a1148, "Coordinate rollout compression with active
+          # thread writers (#44138)"), with error type changed from ThreadStoreError to
+          # io::Error. The crash is new because rust-v0.147.0's local/mod.rs
+          # (acquire_writer_locks, renamed from acquire_paginated_writer_locks) removed
+          # the prior `ThreadHistoryMode::Legacy` skip, so the writer lock is now
+          # acquired unconditionally for every thread.
           # Reported upstream: https://github.com/openai/codex/issues/26277
           # Remove this patch once upstream openai/codex#26277 is fixed.
-          writer_lock_rs="source-repo/codex-rs/thread-store/src/local/writer_lock.rs"
+          writer_lock_rs="source-repo/codex-rs/rollout/src/writer_lock.rs"
           set +e
           python3 - "$writer_lock_rs" <<'WLOCKPYEOF'
           import sys
@@ -590,75 +593,69 @@ jobs:
 
           ''' + HELPER_ANCHOR
 
-          SITE1_OLD = '''        file.lock().map_err(|err| ThreadStoreError::Internal {
-                      message: format!(
-                          "failed to acquire thread writer coordination lock {}: {err}",
-                          path.display()
-                      ),
+          SITE1_OLD = '''        file.lock().map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
                   })?;'''
           SITE1_NEW = '''        #[cfg(target_os = "android")]
-                  android_flock_exclusive_blocking(&file).map_err(|err| ThreadStoreError::Internal {
-                      message: format!(
-                          "failed to acquire thread writer coordination lock {}: {err}",
-                          path.display()
-                      ),
+                  android_flock_exclusive_blocking(&file).map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
                   })?;
                   #[cfg(not(target_os = "android"))]
-                  file.lock().map_err(|err| ThreadStoreError::Internal {
-                      message: format!(
-                          "failed to acquire thread writer coordination lock {}: {err}",
-                          path.display()
-                      ),
+                  file.lock().map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
                   })?;'''
 
           SITE2_OLD = '''        match file.try_lock() {
                       Ok(()) => {}
                       Err(std::fs::TryLockError::WouldBlock) => {
-                          return Err(ThreadStoreError::Conflict {
-                              message: format!("thread {thread_id} already has an active writer"),
-                          });
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
                       }
                       Err(std::fs::TryLockError::Error(err)) => {
-                          return Err(ThreadStoreError::Internal {
-                              message: format!(
-                                  "failed to acquire thread writer lock {}: {err}",
-                                  path.display()
-                              ),
-                          });
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
                       }
                   }'''
           SITE2_NEW = '''        #[cfg(target_os = "android")]
                   match android_try_flock_exclusive(&file) {
                       Ok(true) => {}
                       Ok(false) => {
-                          return Err(ThreadStoreError::Conflict {
-                              message: format!("thread {thread_id} already has an active writer"),
-                          });
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
                       }
                       Err(err) => {
-                          return Err(ThreadStoreError::Internal {
-                              message: format!(
-                                  "failed to acquire thread writer lock {}: {err}",
-                                  path.display()
-                              ),
-                          });
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
                       }
                   }
                   #[cfg(not(target_os = "android"))]
                   match file.try_lock() {
                       Ok(()) => {}
                       Err(std::fs::TryLockError::WouldBlock) => {
-                          return Err(ThreadStoreError::Conflict {
-                              message: format!("thread {thread_id} already has an active writer"),
-                          });
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
                       }
                       Err(std::fs::TryLockError::Error(err)) => {
-                          return Err(ThreadStoreError::Internal {
-                              message: format!(
-                                  "failed to acquire thread writer lock {}: {err}",
-                                  path.display()
-                              ),
-                          });
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
                       }
                   }'''
 
@@ -725,11 +722,38 @@ jobs:
                           }
                       }'''
 
+          SITE4_OLD = '''        match OpenOptions::new().read(true).write(true).open(path) {
+                      Ok(file) => match file.try_lock() {
+                          Ok(()) => Ok(Some(coordination_lock)),
+                          Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+                          Err(std::fs::TryLockError::Error(err)) => Err(err),
+                      },
+                      Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(coordination_lock)),
+                      Err(err) => Err(err),
+                  }'''
+          SITE4_NEW = '''        match OpenOptions::new().read(true).write(true).open(path) {
+                      #[cfg(target_os = "android")]
+                      Ok(file) => match android_try_flock_exclusive(&file) {
+                          Ok(true) => Ok(Some(coordination_lock)),
+                          Ok(false) => Ok(None),
+                          Err(err) => Err(err),
+                      },
+                      #[cfg(not(target_os = "android"))]
+                      Ok(file) => match file.try_lock() {
+                          Ok(()) => Ok(Some(coordination_lock)),
+                          Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+                          Err(std::fs::TryLockError::Error(err)) => Err(err),
+                      },
+                      Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(coordination_lock)),
+                      Err(err) => Err(err),
+                  }'''
+
           EDITS = [
               ("helper insertion", HELPER_ANCHOR, HELPERS),
               ("lock_coordination site", SITE1_OLD, SITE1_NEW),
               ("acquire try_lock site", SITE2_OLD, SITE2_NEW),
               ("remove_stale_thread_locks site", SITE3_OLD, SITE3_NEW),
+              ("try_acquire_for_publication site", SITE4_OLD, SITE4_NEW),
           ]
 
           already_applied = all(txt.count(new) == 1 for _, _old, new in EDITS)
@@ -755,7 +779,7 @@ jobs:
               txt = txt.replace(old, new, 1)
 
           p.write_text(txt)
-          print("Applied Android real-flock writer lock patch to writer_lock.rs (4/4 edits)")
+          print("Applied Android real-flock writer lock patch to writer_lock.rs (5/5 edits)")
           sys.exit(0)
           WLOCKPYEOF
           WLOCK_STATUS=$?
@@ -776,11 +800,11 @@ jobs:
             exit "$WLOCK_STATUS"
           fi
 
-          # Patch: add libc dependency to thread-store crate (needed by the Android
+          # Patch: add libc dependency to rollout crate (needed by the Android
           # real-flock shim above). Workspace already pins libc = "0.2.182".
-          thread_store_cargo="source-repo/codex-rs/thread-store/Cargo.toml"
+          rollout_cargo="source-repo/codex-rs/rollout/Cargo.toml"
           set +e
-          python3 - "$thread_store_cargo" <<'TSCARGOPYEOF'
+          python3 - "$rollout_cargo" <<'ROLLOUTCARGOPYEOF'
           import sys
           import pathlib
 
@@ -788,20 +812,20 @@ jobs:
           txt = p.read_text()
 
           # libc is only referenced from the Android-only flock() shim in
-          # thread-store/src/local/writer_lock.rs (see writer_lock.rs patch,
+          # rollout/src/writer_lock.rs (see writer_lock.rs patch,
           # openai/codex#26277). Inserted alphabetically among existing deps,
           # matching this crate's existing ordering convention.
-          OLD = 'futures = { workspace = true }\npulldown-cmark = { workspace = true }'
-          NEW = 'futures = { workspace = true }\nlibc = { workspace = true }\npulldown-cmark = { workspace = true }'
+          OLD = 'codex-utils-path = { workspace = true }\nregex = { workspace = true }'
+          NEW = 'codex-utils-path = { workspace = true }\nlibc = { workspace = true }\nregex = { workspace = true }'
 
           if txt.count(NEW) == 1:
-              print("thread-store/Cargo.toml libc dependency already present — skipping")
+              print("rollout/Cargo.toml libc dependency already present — skipping")
               sys.exit(2)
 
           count = txt.count(OLD)
           if count != 1:
               print(
-                  f"ERROR: unexpected upstream change in thread-store/Cargo.toml "
+                  f"ERROR: unexpected upstream change in rollout/Cargo.toml "
                   f"(expected exactly 1 occurrence of anchor, found {count})",
                   file=sys.stderr,
               )
@@ -809,21 +833,21 @@ jobs:
 
           txt = txt.replace(OLD, NEW, 1)
           p.write_text(txt)
-          print("Added libc workspace dependency to thread-store/Cargo.toml")
+          print("Added libc workspace dependency to rollout/Cargo.toml")
           sys.exit(0)
-          TSCARGOPYEOF
-          TSCARGO_STATUS=$?
+          ROLLOUTCARGOPYEOF
+          ROLLOUT_CARGO_STATUS=$?
           set -e
-          if [ "$TSCARGO_STATUS" -eq 0 ]; then
-            if ! grep -qF 'libc = { workspace = true }' "$thread_store_cargo"; then
-              echo "ERROR: libc dependency not found in thread-store/Cargo.toml after patch" >&2
+          if [ "$ROLLOUT_CARGO_STATUS" -eq 0 ]; then
+            if ! grep -qF 'libc = { workspace = true }' "$rollout_cargo"; then
+              echo "ERROR: libc dependency not found in rollout/Cargo.toml after patch" >&2
               exit 1
             fi
-            echo "Assertion passed: libc dependency present in thread-store/Cargo.toml"
-          elif [ "$TSCARGO_STATUS" -eq 2 ]; then
-            echo "Skipped: thread-store/Cargo.toml already patched"
+            echo "Assertion passed: libc dependency present in rollout/Cargo.toml"
+          elif [ "$ROLLOUT_CARGO_STATUS" -eq 2 ]; then
+            echo "Skipped: rollout/Cargo.toml already patched"
           else
-            exit "$TSCARGO_STATUS"
+            exit "$ROLLOUT_CARGO_STATUS"
           fi
 
       - name: Patch reqwest TLS to rustls for Android cross-compile
