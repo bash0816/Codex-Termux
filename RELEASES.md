@@ -1,3 +1,25 @@
+## 0.155.1 — 2026-09-23
+
+upstream openai/codex 0.155.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+
+- New local TUI sessions now leave reasoning summaries disabled by default, fixing request rejection by providers that do not support them. Explicit reasoning-summary settings remain respected. (#46467)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.155.0...rust-v0.155.1
+
+- #46467 Restore none as the TUI reasoning summary default (@celia-oai)
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.155.1
+codex --version
+```
 ## 0.154.0 — 2026-09-12
 
 upstream openai/codex 0.154.0 追従。
