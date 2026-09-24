@@ -1,3 +1,25 @@
+## 0.156.1 — 2026-09-25
+
+upstream openai/codex 0.156.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## New Features
+
+- Choose GPT-6 Sol or GPT-6 Luna from the model picker. The rate-limit switch prompt now recommends GPT-6 Luna. (#47405)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.156.0...rust-v0.156.1
+
+- #47405 [hotfix 0.156.0] Add GPT-6 Sol and Luna to the model catalog (#47332) @imac-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.156.1
+codex --version
+```
 ## 0.156.0 — 2026-09-24
 
 upstream openai/codex 0.156.0 追従。
