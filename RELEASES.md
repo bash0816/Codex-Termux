@@ -1,3 +1,25 @@
+## 0.159.2 — 2026-10-01
+
+upstream openai/codex 0.159.2 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+
+- Suppressed console windows flashing on Windows when Codex launches background processes and sandboxed commands. (#49385)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.159.1...rust-v0.159.2
+
+- #49385 [0.159] Backport Windows console suppression for 0.159.2 @andrewgu-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.159.2
+codex --version
+```
 ## 0.159.0 — 2026-09-30
 
 upstream openai/codex 0.159.0 追従。

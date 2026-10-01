@@ -1,11 +1,11 @@
 {
   "canonical_package_name": "@bash0816/codex-termux",
-  "canonical_package_status": "ready_to_publish",
-  "public_distribution_status": "staged_for_publish",
+  "canonical_package_status": "published",
+  "public_distribution_status": "published",
   "support_status": "active",
-  "latest_audited_version": "0.159.0",
+  "latest_audited_version": "0.159.2",
   "latest_candidate_version": "0.159.2",
-  "previous_stable_version": "0.159.0",
+  "previous_stable_version": "0.159.2",
   "candidate_state": "published",
   "candidate_state_status": "ready_to_publish",
   "audit_evidence_ref": "",
@@ -47,7 +47,8 @@
     "0.156.1",
     "0.157.0",
     "0.158.0",
-    "0.159.0"
+    "0.159.0",
+    "0.159.2"
   ],
   "historical_baselines": [
     "0.131.0",
@@ -66,11 +67,11 @@
   "update_command": "codex update",
   "update_guidance": "Run codex update to install the latest audited package version.",
   "manifest_url": "https://raw.githubusercontent.com/bash0816/Codex-Termux/main/config/codex-termux-release-manifest.json",
-  "rollback_version": "0.158.0",
+  "rollback_version": "0.159.0",
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-09-30T15:08:11.227Z",
+  "updated_at": "2026-10-01T09:57:29.930Z",
   "build_run_id": "36722870093",
   "source_sha": "ff6aec96948b70d94983af2641a6b67c94faeff5",
   "expected_build_run_id": "36722870093"
