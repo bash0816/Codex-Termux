@@ -1,3 +1,25 @@
+## 0.159.3 — 2026-10-03
+
+upstream openai/codex 0.159.3 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## New Features
+
+- Eligible local sessions signed in with ChatGPT can now show optional reminders to complete account security setup. (#49744)
+
+## Changelog
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.159.2...rust-v0.159.3
+
+- #49744 [0.159] Backport account security setup reminders for 0.159.3 @andrewgu-oai
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.159.3
+codex --version
+```
 ## 0.159.2 — 2026-10-01
 
 upstream openai/codex 0.159.2 追従。
