@@ -813,16 +813,36 @@ jobs:
 
           # libc is only referenced from the Android-only flock() shim in
           # rollout/src/writer_lock.rs (see writer_lock.rs patch,
-          # openai/codex#26277). Inserted alphabetically among existing deps,
-          # matching this crate's existing ordering convention.
-          OLD = 'codex-utils-path = { workspace = true }\nregex = { workspace = true }'
-          NEW = 'codex-utils-path = { workspace = true }\nlibc = { workspace = true }\nregex = { workspace = true }'
+          # openai/codex#26277). Dependency ordering varies by version, so
+          # insert it immediately after the codex-utils-path line.
+          lines = txt.splitlines(keepends=True)
 
-          if txt.count(NEW) == 1:
+          def line_text(line):
+              return line.removesuffix("\n").removesuffix("\r")
+
+          section_start = next(
+              (i for i, line in enumerate(lines) if line_text(line) == "[dependencies]"),
+              None,
+          )
+          if section_start is None:
+              print("ERROR: [dependencies] section not found in rollout/Cargo.toml", file=sys.stderr)
+              sys.exit(1)
+
+          section_end = next(
+              (i for i in range(section_start + 1, len(lines)) if line_text(lines[i]).lstrip().startswith("[")),
+              len(lines),
+          )
+          section = lines[section_start + 1:section_end]
+          if any(line_text(line) == "libc = { workspace = true }" for line in section):
               print("rollout/Cargo.toml libc dependency already present — skipping")
               sys.exit(2)
 
-          count = txt.count(OLD)
+          anchor = "codex-utils-path = { workspace = true }"
+          anchor_indexes = [
+              i for i in range(section_start + 1, section_end)
+              if line_text(lines[i]) == anchor
+          ]
+          count = len(anchor_indexes)
           if count != 1:
               print(
                   f"ERROR: unexpected upstream change in rollout/Cargo.toml "
@@ -831,8 +851,19 @@ jobs:
               )
               sys.exit(1)
 
-          txt = txt.replace(OLD, NEW, 1)
-          p.write_text(txt)
+          anchor_index = anchor_indexes[0]
+          anchor_line = lines[anchor_index]
+          if anchor_line.endswith("\r\n"):
+              newline = "\r\n"
+          elif anchor_line.endswith("\n"):
+              newline = "\n"
+          elif anchor_line.endswith("\r"):
+              newline = "\r"
+          else:
+              newline = "\n"
+          inserted = ("" if anchor_line.endswith(("\n", "\r")) else newline) + "libc = { workspace = true }" + (newline if anchor_line.endswith(("\n", "\r")) else "")
+          lines.insert(anchor_index + 1, inserted)
+          p.write_bytes("".join(lines).encode())
           print("Added libc workspace dependency to rollout/Cargo.toml")
           sys.exit(0)
           ROLLOUTCARGOPYEOF
