@@ -829,7 +829,7 @@ jobs:
               sys.exit(1)
 
           section_end = next(
-              (i for i in range(section_start + 1, len(lines)) if line_text(lines[i]).startswith("[")),
+              (i for i in range(section_start + 1, len(lines)) if line_text(lines[i]).lstrip().startswith("[")),
               len(lines),
           )
           section = lines[section_start + 1:section_end]
