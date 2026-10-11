@@ -1,3 +1,22 @@
+## 0.162.1 — 2026-10-12
+
+upstream openai/codex 0.162.1 追従。
+
+**Upstream highlights / 主な変更（upstream）**
+
+## Bug Fixes
+
+- Fixed a TUI crash when asynchronous questions contain multiple lines, preserving line breaks and complete hyperlink destinations. (#51866)
+- Fixed startup failures caused by differences between a running background server's feature settings and CLI defaults. Compatibility checks now apply only to explicit command-line feature overrides. (#52648)
+
+Full Changelog: https://github.com/openai/codex/compare/rust-v0.162.0...rust-v0.162.1
+
+### Install
+
+```sh
+npm install -g @bash0816/codex-termux@0.162.1
+codex --version
+```
 ## 0.162.0 — 2026-10-10
 
 upstream openai/codex 0.162.0 追従。
