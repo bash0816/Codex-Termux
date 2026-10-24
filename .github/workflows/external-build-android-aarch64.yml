@@ -881,6 +881,13 @@ jobs:
             exit "$ROLLOUT_CARGO_STATUS"
           fi
 
+      - name: Patch mxc-sdk out of the Android dependency graph (rust-v0.164.0 only)
+        if: inputs.source_repository == 'openai/codex' && inputs.source_ref == 'rust-v0.164.0'
+        run: |
+          set -eu
+          python3 "host-repo/scripts/patch-mxc-sdk-android.py" "source-repo/codex-rs/mxc-sandbox/Cargo.toml"
+          git -C source-repo diff --stat -- codex-rs/mxc-sandbox/Cargo.toml
+
       - name: Patch reqwest TLS to rustls for Android cross-compile
         run: |
           set -eu
