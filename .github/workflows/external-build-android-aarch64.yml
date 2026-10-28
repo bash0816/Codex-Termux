@@ -881,14 +881,19 @@ jobs:
             exit "$ROLLOUT_CARGO_STATUS"
           fi
 
-      # Applies to every supported openai/codex ref. The script is idempotent and exits 1 when the
-      # expected anchors are missing, so the build stops instead of silently skipping. Older refs
-      # without codex-rs/mxc-sandbox/Cargo.toml are not supported and fail here.
+      # Applies to every openai/codex ref. Refs without codex-rs/mxc-sandbox/Cargo.toml (older refs
+      # allowed by Validate source_ref) are skipped. When the file exists, the script is idempotent
+      # and exits 1 if its anchors are missing, so the build stops instead of building an unpatched graph.
       - name: Patch mxc-sdk out of the Android dependency graph (openai/codex)
         if: inputs.source_repository == 'openai/codex'
         run: |
           set -eu
-          python3 "host-repo/scripts/patch-mxc-sdk-android.py" "source-repo/codex-rs/mxc-sandbox/Cargo.toml"
+          mxc_toml="source-repo/codex-rs/mxc-sandbox/Cargo.toml"
+          if [ ! -f "$mxc_toml" ]; then
+            echo "Skipped: $mxc_toml is not present in this ref; mxc-sdk patch is not needed"
+            exit 0
+          fi
+          python3 "host-repo/scripts/patch-mxc-sdk-android.py" "$mxc_toml"
           git -C source-repo diff --stat -- codex-rs/mxc-sandbox/Cargo.toml
 
       - name: Patch reqwest TLS to rustls for Android cross-compile
