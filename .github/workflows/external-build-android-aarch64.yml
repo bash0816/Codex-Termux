@@ -881,8 +881,11 @@ jobs:
             exit "$ROLLOUT_CARGO_STATUS"
           fi
 
-      - name: Patch mxc-sdk out of the Android dependency graph (rust-v0.164.0 only)
-        if: inputs.source_repository == 'openai/codex' && inputs.source_ref == 'rust-v0.164.0'
+      # Applies to every supported openai/codex ref. The script is idempotent and exits 1 when the
+      # expected anchors are missing, so the build stops instead of silently skipping. Older refs
+      # without codex-rs/mxc-sandbox/Cargo.toml are not supported and fail here.
+      - name: Patch mxc-sdk out of the Android dependency graph (openai/codex)
+        if: inputs.source_repository == 'openai/codex'
         run: |
           set -eu
           python3 "host-repo/scripts/patch-mxc-sdk-android.py" "source-repo/codex-rs/mxc-sandbox/Cargo.toml"
