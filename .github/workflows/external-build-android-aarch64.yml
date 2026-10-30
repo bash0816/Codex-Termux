@@ -593,12 +593,12 @@ jobs:
 
           ''' + HELPER_ANCHOR
 
-          SITE1_OLD = '''        file.lock().map_err(|err| {
+          SITE1_A_OLD = '''        file.lock().map_err(|err| {
                       io::Error::other(format!(
                           "failed to acquire thread writer coordination lock: {err}"
                       ))
                   })?;'''
-          SITE1_NEW = '''        #[cfg(target_os = "android")]
+          SITE1_A_NEW = '''        #[cfg(target_os = "android")]
                   android_flock_exclusive_blocking(&file).map_err(|err| {
                       io::Error::other(format!(
                           "failed to acquire thread writer coordination lock: {err}"
@@ -610,6 +610,55 @@ jobs:
                           "failed to acquire thread writer coordination lock: {err}"
                       ))
                   })?;'''
+
+          SITE1_B_OLD = '''        loop {
+                      match file.try_lock() {
+                          Ok(()) => break,
+                          Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Err(fs::TryLockError::WouldBlock) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(fs::TryLockError::Error(err)) => return Err(err),
+                      }
+                  }'''
+
+          SITE1_B_NEW = '''        #[cfg(target_os = "android")]
+                  loop {
+                      match android_try_flock_exclusive(&file) {
+                          Ok(true) => break,
+                          Ok(false) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Ok(false) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(err) => return Err(err),
+                      }
+                  }
+                  #[cfg(not(target_os = "android"))]
+                  loop {
+                      match file.try_lock() {
+                          Ok(()) => break,
+                          Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Err(fs::TryLockError::WouldBlock) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(fs::TryLockError::Error(err)) => return Err(err),
+                      }
+                  }'''
 
           SITE2_OLD = '''        match file.try_lock() {
                       Ok(()) => {}
@@ -748,39 +797,100 @@ jobs:
                       Err(err) => Err(err),
                   }'''
 
-          EDITS = [
+          EDITS_COMMON = [
               ("helper insertion", HELPER_ANCHOR, HELPERS),
-              ("lock_coordination site", SITE1_OLD, SITE1_NEW),
               ("acquire try_lock site", SITE2_OLD, SITE2_NEW),
               ("remove_stale_thread_locks site", SITE3_OLD, SITE3_NEW),
               ("try_acquire_for_publication site", SITE4_OLD, SITE4_NEW),
           ]
+          SITE1 = {"A": (SITE1_A_OLD, SITE1_A_NEW), "B": (SITE1_B_OLD, SITE1_B_NEW)}
 
-          already_applied = all(txt.count(new) == 1 for _, _old, new in EDITS)
-          fresh = all(txt.count(old) == 1 for _, old, _new in EDITS)
 
-          if already_applied:
+          def counts(txt):
+              res = {}
+              res["lock_coordination site [A]"] = (txt.count(SITE1_A_OLD), txt.count(SITE1_A_NEW))
+              res["lock_coordination site [B]"] = (txt.count(SITE1_B_OLD), txt.count(SITE1_B_NEW))
+              for name, old, new in EDITS_COMMON:
+                  res[name] = (txt.count(old), txt.count(new))
+              return res
+
+
+          def is_fresh(txt):
+              oa, ob = txt.count(SITE1_A_OLD), txt.count(SITE1_B_OLD)
+              na, nb = txt.count(SITE1_A_NEW), txt.count(SITE1_B_NEW)
+              if (oa, ob) not in [(1, 0), (0, 1)]:
+                  return None
+              if na != 0 or nb != 0:
+                  return None
+              for _name, old, new in EDITS_COMMON:
+                  if txt.count(old) != 1 or txt.count(new) != 0:
+                      return None
+              return "A" if oa == 1 else "B"
+
+
+          def unapply(txt):
+              na, nb = txt.count(SITE1_A_NEW), txt.count(SITE1_B_NEW)
+              if (na, nb) not in [(1, 0), (0, 1)]:
+                  return None
+              for _name, _old, new in EDITS_COMMON:
+                  if txt.count(new) != 1:
+                      return None
+              variant = "A" if na == 1 else "B"
+              t = txt
+              t = t.replace(SITE4_NEW, SITE4_OLD, 1)
+              t = t.replace(SITE3_NEW, SITE3_OLD, 1)
+              t = t.replace(SITE2_NEW, SITE2_OLD, 1)
+              t = t.replace(SITE1[variant][1], SITE1[variant][0], 1)
+              t = t.replace(HELPERS, HELPER_ANCHOR, 1)
+              return t, variant
+
+
+          def is_applied(txt):
+              r = unapply(txt)
+              if r is None:
+                  return False
+              t, variant = r
+              return is_fresh(t) == variant
+
+
+          v = is_fresh(txt)
+          if v is not None:
+              ordered = [
+                  ("helper insertion", HELPER_ANCHOR, HELPERS),
+                  ("lock_coordination site", SITE1[v][0], SITE1[v][1]),
+                  ("acquire try_lock site", SITE2_OLD, SITE2_NEW),
+                  ("remove_stale_thread_locks site", SITE3_OLD, SITE3_NEW),
+                  ("try_acquire_for_publication site", SITE4_OLD, SITE4_NEW),
+              ]
+              for name, old, new in ordered:
+                  assert txt.count(old) == 1, f"{name}: old pattern not unique after prior edits"
+                  txt = txt.replace(old, new, 1)
+              p.write_text(txt)
+              print("Applied Android real-flock writer lock patch to writer_lock.rs (5/5 edits)")
+              sys.exit(0)
+
+          if is_applied(txt):
               print("writer_lock.rs Android real-flock patch already applied — skipping")
               sys.exit(2)
 
-          if not fresh:
-              for name, old, _new in EDITS:
-                  count = txt.count(old)
-                  if count != 1:
-                      print(
-                          f"ERROR: unexpected upstream change in writer_lock.rs at '{name}' "
-                          f"(expected exactly 1 occurrence of old pattern, found {count})",
-                          file=sys.stderr,
-                      )
-              sys.exit(1)
-
-          for name, old, new in EDITS:
-              assert txt.count(old) == 1, f"{name}: old pattern not unique after prior edits"
-              txt = txt.replace(old, new, 1)
-
-          p.write_text(txt)
-          print("Applied Android real-flock writer lock patch to writer_lock.rs (5/5 edits)")
-          sys.exit(0)
+          for name, old, _new in EDITS_COMMON:
+              count = txt.count(old)
+              if count != 1:
+                  print(
+                      f"ERROR: unexpected upstream change in writer_lock.rs at '{name}' "
+                      f"(expected exactly 1 occurrence of old pattern, found {count})",
+                      file=sys.stderr,
+                  )
+          oa, ob = txt.count(SITE1_A_OLD), txt.count(SITE1_B_OLD)
+          if (oa, ob) not in [(1, 0), (0, 1)]:
+              print(
+                  "ERROR: unexpected upstream change in writer_lock.rs at 'lock_coordination site' "
+                  f"(expected exactly one of SITE1_A/SITE1_B to match once; found A={oa}, B={ob})",
+                  file=sys.stderr,
+              )
+          for name, (o, n) in counts(txt).items():
+              print(f"{name}: old={o} new={n}", file=sys.stderr)
+          sys.exit(1)
           WLOCKPYEOF
           WLOCK_STATUS=$?
           set -e
