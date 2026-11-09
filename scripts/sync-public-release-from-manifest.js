@@ -166,6 +166,27 @@ function renderWithheldCommands() {
   ];
 }
 
+// Remove this notice once the fixed version is the latest audited version.
+const ROOT_KNOWN_ISSUE_LINES = [
+  '## Known Issue / 既知の問題',
+  '',
+  '**0.166.0: sign-in fails with `lock() not supported` / 0.166.0 でログインが `lock() not supported` で失敗します**',
+  '',
+  'In version 0.166.0, `codex login` can fail with `persist_failed` / `lock() not supported`, and an existing sign-in can later fail to refresh with `refresh token was already used`.',
+  '',
+  '0.166.0 では、`codex login` が `persist_failed` / `lock() not supported` で失敗することがあります。ログイン済みの場合も、後でトークン更新が `refresh token was already used` で失敗することがあります。',
+  '',
+  'Workaround: install 0.165.0 and sign in again. A fixed version is being prepared.',
+  '',
+  '回避策: 0.165.0 に戻して、もう一度ログインしてください。修正版は準備中です。',
+  '',
+  '```sh',
+  'npm install -g @bash0816/codex-termux@0.165.0',
+  'codex login --device-auth',
+  '```',
+  '',
+];
+
 function renderRootReadme(manifest) {
   const state = getState(manifest);
   const commands = state.isPublished ? renderPublishedCommands(manifest, state) : renderWithheldCommands();
@@ -181,6 +202,7 @@ function renderRootReadme(manifest) {
     '',
     ...renderRootStatusLines(state),
     '',
+    ...ROOT_KNOWN_ISSUE_LINES,
     '## Manifest Snapshot / manifest スナップショット',
     '',
     '- Repository visibility: `public`',
