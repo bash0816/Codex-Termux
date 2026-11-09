@@ -90,6 +90,13 @@ test('renderRootReadme: published manifest contains "Public package release is l
   assert(readme.includes('Public package release is live.'));
 });
 
+test('renderRootReadme: includes the known issue notice with the workaround version', () => {
+  const manifest = createManifest();
+  const readme = renderRootReadme(manifest);
+  assert(readme.includes('## Known Issue / 既知の問題'));
+  assert(readme.includes('0.165.0'));
+});
+
 test('renderPackageManifest: includes all required copied fields', () => {
   const manifest = createManifest();
   const manifestJson = renderPackageManifest(manifest);
