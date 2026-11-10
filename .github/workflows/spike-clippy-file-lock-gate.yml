@@ -1,0 +1,1271 @@
+name: spike-clippy-file-lock-gate
+
+on:
+  push:
+    branches:
+      - spike/clippy-file-lock-gate
+    paths:
+      - .github/workflows/spike-clippy-file-lock-gate.yml
+  workflow_dispatch:
+    inputs:
+      rust_version:
+        description: Rust toolchain version. Leave empty to detect from source-repo/codex-rs/rust-toolchain.toml
+        required: false
+        default: ""
+        type: string
+      source_repository:
+        description: Source repository to build
+        required: true
+        type: string
+        default: openai/codex
+      source_ref:
+        description: Source ref to build
+        required: true
+        type: string
+      rusty_v8_release_tag:
+        description: 'Optional override for the rusty_v8 Android release tag to fetch (e.g. "rusty-v8-v150.4.0-sandbox"). Leave empty to use the tag resolved from third_party/v8/android-artifacts.toml on this ref (normal behavior). When set, rusty_v8_expect_archive_sha256 and rusty_v8_expect_binding_sha256 are both required.'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_archive_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of librusty_v8_release_aarch64-linux-android.a.gz for that tag (the manifest checksums describe a different, canonical artifact and cannot be used here).'
+        required: false
+        default: ""
+        type: string
+      rusty_v8_expect_binding_sha256:
+        description: 'Required when rusty_v8_release_tag is set: expected sha256 of src_binding_release_aarch64-linux-android.rs for that tag.'
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    timeout-minutes: 180
+    env:
+      RUST_VERSION: ${{ inputs.rust_version || '' }}
+      ANDROID_NDK_REVISION: "r27c"
+      ANDROID_TARGET: aarch64-linux-android
+      ANDROID_API_LEVEL: "29"
+      BUNDLE_DIR: ${{ github.workspace }}/external-build-bundle
+    steps:
+      - name: Validate source_ref
+        run: |
+          set -eu
+          case "${{ inputs.source_repository || 'openai/codex' }}" in
+            openai/codex)
+              case "${{ inputs.source_ref || 'rust-v0.167.0' }}" in
+                rust-v0.131.0|rust-v0.133.0|rust-v0.13[4-9].*|rust-v0.1[4-9][0-9]*)
+                  ;;
+                *)
+                  echo "unsupported source_ref for upstream line: ${{ inputs.source_ref || 'rust-v0.167.0' }}" >&2
+                  exit 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "unsupported source_repository: ${{ inputs.source_repository || 'openai/codex' }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout source ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+          path: host-repo
+
+      - name: Checkout build source repo
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.source_repository || 'openai/codex' }}
+          ref: ${{ inputs.source_ref || 'rust-v0.167.0' }}
+          fetch-depth: 1
+          path: source-repo
+
+      - name: Save pre-patch Cargo.lock for later diff
+        run: |
+          set -eu
+          sha256sum source-repo/codex-rs/Cargo.lock
+          cp source-repo/codex-rs/Cargo.lock /tmp/cargo-lock-before.txt
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Verify Python tomllib support
+        run: |
+          set -eu
+          python3 --version
+          python3 -c "import tomllib"
+
+      - name: Detect Rust version from source-repo/codex-rs/rust-toolchain.toml
+        if: env.RUST_VERSION == ''
+        run: |
+          set -eu
+          rust_version="$(python3 -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("source-repo/codex-rs/rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]["channel"])')"
+          test -n "$rust_version"
+          echo "RUST_VERSION=$rust_version" >> "$GITHUB_ENV"
+          echo "Detected RUST_VERSION=$rust_version from source-repo/codex-rs/rust-toolchain.toml"
+
+      - name: Verify upstream workspace version when needed
+        if: (inputs.source_repository || 'openai/codex') == 'openai/codex'
+        env:
+          SOURCE_REF_INPUT: ${{ inputs.source_ref || 'rust-v0.167.0' }}
+        run: |
+          set -eu
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import pathlib, tomllib, re, os, sys
+
+          path = pathlib.Path("source-repo/codex-rs/Cargo.toml")
+          data = tomllib.loads(path.read_text(encoding="utf-8"))
+          version = data["workspace"]["package"]["version"]
+          expected_ref = os.environ.get("SOURCE_REF_INPUT", "")
+          m = re.match(r"rust-v(.+)", expected_ref)
+          if m and version != m.group(1):
+              print(f"unexpected workspace.package.version: {version} (expected {m.group(1)})", file=sys.stderr)
+              raise SystemExit(1)
+          print(f"WORKSPACE_VERSION={version}")
+          PY
+
+      - name: Add swap space
+        run: |
+          set -eu
+          df -h /home/runner /tmp
+          free -h
+          SWAP_FILE="$RUNNER_TEMP/swapfile"
+          sudo fallocate -l 4G "$SWAP_FILE"
+          sudo chmod 600 "$SWAP_FILE"
+          sudo mkswap "$SWAP_FILE"
+          sudo swapon "$SWAP_FILE"
+          sudo sysctl vm.swappiness=10
+          free -h
+          df -h /home/runner /tmp
+
+      - name: Install Rust
+        run: |
+          set -eu
+          rustup toolchain install "${RUST_VERSION}" --profile minimal
+          rustup target add "${ANDROID_TARGET}" --toolchain "${RUST_VERSION}"
+          rustup default "${RUST_VERSION}"
+
+      - name: Download Android NDK r27c
+        run: |
+          set -eu
+          ndk_zip="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_REVISION}.zip"
+          ndk_dir="$RUNNER_TEMP/android-ndk-${ANDROID_NDK_REVISION}"
+          ndk_url="https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_REVISION}-linux.zip"
+
+          curl -fsSL "$ndk_url" -o "$ndk_zip"
+          unzip -q "$ndk_zip" -d "$RUNNER_TEMP"
+
+          test -d "$ndk_dir"
+          {
+            echo "ANDROID_NDK_ARCHIVE_URL=$ndk_url"
+            echo "ANDROID_NDK_ARCHIVE_SIZE=$(wc -c < "$ndk_zip")"
+            echo "ANDROID_NDK_ARCHIVE_SHA256=$(sha256sum "$ndk_zip" | awk '{print $1}')"
+            echo "ANDROID_NDK_HOME=$ndk_dir"
+            echo "ANDROID_NDK_ROOT=$ndk_dir"
+            echo "CC_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+            echo "CXX_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang++"
+            echo "AR_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            echo "RANLIB_aarch64_linux_android=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk_dir/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+          } >> "$GITHUB_ENV"
+          rm -f "$ndk_zip"
+          df -h /home/runner /tmp
+
+      - name: Configure V8 Android artifact provenance
+        run: |
+          set -eu
+          _fetch_rusty_v8() {
+            local helper="$1"
+            local source_root_arg="$2"
+            local release_tag_arg="$3"
+            local expect_archive_sha_arg="$4"
+            local expect_binding_sha_arg="$5"
+            local fetch_env="$RUNNER_TEMP/rusty-v8.env"
+            python3 "$helper" \
+              ${source_root_arg:+--source-root "$source_root_arg"} \
+              ${release_tag_arg:+--release-tag "$release_tag_arg"} \
+              ${expect_archive_sha_arg:+--expect-archive-sha256 "$expect_archive_sha_arg"} \
+              ${expect_binding_sha_arg:+--expect-binding-sha256 "$expect_binding_sha_arg"} \
+              > "$fetch_env"
+
+            RUSTY_V8_ARCHIVE=""
+            RUSTY_V8_SRC_BINDING_PATH=""
+            while IFS='=' read -r key value; do
+              case "$key" in
+                export\ RUSTY_V8_ARCHIVE)
+                  RUSTY_V8_ARCHIVE=$value
+                  ;;
+                export\ RUSTY_V8_SRC_BINDING_PATH)
+                  RUSTY_V8_SRC_BINDING_PATH=$value
+                  ;;
+              esac
+            done < "$fetch_env"
+
+            test -n "$RUSTY_V8_ARCHIVE"
+            test -n "$RUSTY_V8_SRC_BINDING_PATH"
+            RUSTY_V8_ARCHIVE=${RUSTY_V8_ARCHIVE#\"}
+            RUSTY_V8_ARCHIVE=${RUSTY_V8_ARCHIVE%\"}
+            RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH#\"}
+            RUSTY_V8_SRC_BINDING_PATH=${RUSTY_V8_SRC_BINDING_PATH%\"}
+            {
+              echo "RUSTY_V8_ARCHIVE=$RUSTY_V8_ARCHIVE"
+              echo "RUSTY_V8_SRC_BINDING_PATH=$RUSTY_V8_SRC_BINDING_PATH"
+              echo "RUSTY_V8_RELEASE_TAG=$(basename "$(dirname "$RUSTY_V8_ARCHIVE")")"
+            } >> "$GITHUB_ENV"
+          }
+
+          _fetch_rusty_v8 "host-repo/scripts/fetch_rusty_v8_android.py" "source-repo" "${{ inputs.rusty_v8_release_tag || '' }}" "${{ inputs.rusty_v8_expect_archive_sha256 || '' }}" "${{ inputs.rusty_v8_expect_binding_sha256 || '' }}"
+          echo "V8_ARTIFACT_MODE=host-helper" >> "$GITHUB_ENV"
+          echo "V8_ARTIFACT_SOURCE=host-repo/scripts/fetch_rusty_v8_android.py" >> "$GITHUB_ENV"
+
+      - name: Apply Android build patches (upstream openai/codex only)
+        if: (inputs.source_repository || 'openai/codex') == 'openai/codex'
+        run: |
+          set -eu
+          # Fix: tui/Cargo.toml includes cpal under cfg(not(target_os = "linux")),
+          # but Android target_os = "android", so oboe-sys gets pulled in and
+          # requires -lc++_static which is unavailable without the NDK on-device.
+          # Upstream bug: https://github.com/openai/codex/issues/24507
+          # Remove this patch once upstream fixes the cfg condition.
+          tui_cargo="source-repo/codex-rs/tui/Cargo.toml"
+          if grep -qF 'cfg(not(target_os = "linux"))' "$tui_cargo"; then
+            sed -i 's/cfg(not(target_os = "linux"))/cfg(not(any(target_os = "linux", target_os = "android")))/g' "$tui_cargo"
+            echo "Applied Android cpal/oboe-sys exclusion patch to tui/Cargo.toml"
+          else
+            echo "Patch not needed or already applied — skipping"
+          fi
+
+          # Patch: extend voice/audio_device cfg to exclude Android (tui/src/lib.rs)
+          # Note: upstream removed audio_device/voice modules entirely in 0.140.0+ (cpal/oboe deps also gone)
+          lib_rs="source-repo/codex-rs/tui/src/lib.rs"
+          not_linux_count=$(grep -cF '#[cfg(not(target_os = "linux"))]' "$lib_rs"  || true)
+          linux_count=$(grep -cF '#[cfg(target_os = "linux")]' "$lib_rs"  || true)
+          if [ "$not_linux_count" -gt 0 ] || [ "$linux_count" -gt 0 ]; then
+            test "$not_linux_count" -eq 2
+            test "$linux_count" -eq 2
+            sed -i 's/cfg(not(target_os = "linux"))/cfg(not(any(target_os = "linux", target_os = "android")))/g' "$lib_rs"
+            sed -i 's/cfg(target_os = "linux")/cfg(any(target_os = "linux", target_os = "android"))/g' "$lib_rs"
+            echo "Applied Android audio/voice cfg patch to tui/src/lib.rs"
+          else
+            echo "Patch not needed — upstream already removed audio_device/voice modules (0.140.0+)"
+          fi
+
+          # Patch: add vendored OpenSSL for Android target
+          python3 - <<'INNERPY'
+          from pathlib import Path
+
+          path = Path('source-repo/codex-rs/core/Cargo.toml')
+          text = path.read_text(encoding='utf-8')
+
+          android_header = '[target.aarch64-linux-android.dependencies]'
+          android_block = android_header + '\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          musl_block = '[target.aarch64-unknown-linux-musl.dependencies]\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          openssl_entry = 'openssl-sys = { workspace = true, features = ["vendored"] }'
+
+          if android_block in text:
+              print('Android vendored OpenSSL already present - skip')
+          elif android_header in text:
+              idx = text.index(android_header)
+              section = text[idx:]
+              next_sec = section.find('\n[', 1)
+              section_content = section[:next_sec] if next_sec != -1 else section
+              if openssl_entry in section_content:
+                  print('openssl-sys vendored already in Android section (different format) - skip')
+              else:
+                  raise SystemExit('ERROR: Android target section exists without openssl-sys vendored - manual review required')
+          elif musl_block in text:
+              text = text.replace(musl_block, musl_block + '\n' + android_block, 1)
+              path.write_text(text, encoding='utf-8')
+              print('patched core/Cargo.toml with Android vendored OpenSSL block')
+          else:
+              raise SystemExit('ERROR: musl openssl-sys block not found in core/Cargo.toml')
+          INNERPY
+
+          # Patch: add vendored OpenSSL for http-client (Android target, codex-http-client crate)
+          python3 - <<'INNERPY'
+          from pathlib import Path
+          path = Path('source-repo/codex-rs/http-client/Cargo.toml')
+          text = path.read_text(encoding='utf-8')
+          android_block = '\n[target.aarch64-linux-android.dependencies]\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+          if 'target.aarch64-linux-android' in text:
+              print('http-client: Android vendored OpenSSL already present - skip')
+          else:
+              text = text.rstrip('\n') + '\n' + android_block
+              path.write_text(text, encoding='utf-8')
+              print('patched http-client/Cargo.toml with Android vendored OpenSSL block')
+          INNERPY
+
+          # Patch: fix startup lock for Android (acquire_app_server_startup_lock)
+          # unix_socket.rs calls file.lock() without Android cfg guard, causing
+          # "lock() not supported" on Android /data partition (flock ENOTSUP).
+          # Same fix already applied upstream in installation_id.rs and arg0/lib.rs.
+          # Remove this patch once upstream openai/codex fixes unix_socket.rs.
+          unix_socket_rs="source-repo/codex-rs/app-server-transport/src/transport/unix_socket.rs"
+          set +e
+          python3 - "$unix_socket_rs" <<'LOCKPYEOF'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+          old = '        file.lock()?;'
+          new = '        #[cfg(not(target_os = "android"))]\n        file.lock()?;'
+          if old in txt:
+              p.write_text(txt.replace(old, new, 1))
+              print("Applied Android startup lock fix to unix_socket.rs")
+              sys.exit(0)
+          elif new in txt:
+              print("Startup lock patch already applied — skipping")
+              sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in unix_socket.rs — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
+          LOCKPYEOF
+          LOCK_STATUS=$?
+          set -e
+          if [ "$LOCK_STATUS" -eq 0 ]; then
+            if ! grep -qF '#[cfg(not(target_os = "android"))]' "$unix_socket_rs"; then
+              echo "ERROR: Android cfg guard not found in unix_socket.rs after patch" >&2
+              exit 1
+            fi
+            echo "Assertion passed: Android cfg guard present in unix_socket.rs"
+          elif [ "$LOCK_STATUS" -eq 2 ]; then
+            echo "Skipped: unix_socket.rs already fixed"
+          else
+            exit "$LOCK_STATUS"
+          fi
+
+          # Patch: fix installation_id lock for Android (resolve_installation_id)
+          # Called unconditionally on every codex exec — will crash without this guard.
+          # Remove once upstream openai/codex#26277 is merged.
+          installation_id_rs="source-repo/codex-rs/core/src/installation_id.rs"
+          set +e
+          python3 - "$installation_id_rs" <<'INSTPYEOF'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+          old = '        file.lock()?;'
+          new = '        #[cfg(not(target_os = "android"))]\n        file.lock()?;'
+          if old in txt:
+              p.write_text(txt.replace(old, new, 1))
+              print("Applied Android lock fix to installation_id.rs")
+              sys.exit(0)
+          elif new in txt:
+              print("installation_id.rs lock patch already applied — skipping")
+              sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in installation_id.rs — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
+          INSTPYEOF
+          INST_STATUS=$?
+          set -e
+          if [ "$INST_STATUS" -eq 0 ]; then
+            if ! grep -qF '#[cfg(not(target_os = "android"))]' "$installation_id_rs"; then
+              echo "ERROR: Android cfg guard not found in installation_id.rs after patch" >&2
+              exit 1
+            fi
+            echo "Assertion passed: Android cfg guard present in installation_id.rs"
+          elif [ "$INST_STATUS" -eq 2 ]; then
+            echo "Skipped: installation_id.rs already fixed"
+          else
+            exit "$INST_STATUS"
+          fi
+
+          # Patch: fix arg0 try_lock for Android (prepend_path_entry_for_codex_aliases)
+          # Fail-safe (try_lock returns None on failure) but guard recommended for clarity.
+          # Remove once upstream openai/codex#26277 is merged.
+          arg0_rs="source-repo/codex-rs/arg0/src/lib.rs"
+          set +e
+          python3 - "$arg0_rs" <<'ARG0PYEOF'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+          old = '    lock_file.try_lock()?;'
+          new = '    #[cfg(not(target_os = "android"))]\n    lock_file.try_lock()?;'
+          if old in txt:
+              p.write_text(txt.replace(old, new, 1))
+              print("Applied Android try_lock fix to arg0/src/lib.rs")
+              sys.exit(0)
+          elif new in txt:
+              print("arg0/lib.rs try_lock patch already applied — skipping")
+              sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in arg0/src/lib.rs (try_lock) — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
+          ARG0PYEOF
+          ARG0_STATUS=$?
+          set -e
+          if [ "$ARG0_STATUS" -eq 0 ]; then
+            echo "Assertion passed: arg0/lib.rs try_lock patched"
+          elif [ "$ARG0_STATUS" -eq 2 ]; then
+            echo "Skipped: arg0/lib.rs try_lock already fixed"
+          else
+            exit "$ARG0_STATUS"
+          fi
+
+          # Patch: fix try_lock_dir in janitor_cleanup for Android (best-effort, ENOTSUP -> skip dir)
+          # On Android flock is unsupported, try_lock() returns an OS error that propagates through
+          # try_lock_dir -> janitor_cleanup. Add Android cfg arm to treat unsupported errors as "skip dir".
+          # Remove once upstream openai/codex#26277 is merged.
+          set +e
+          python3 - "$arg0_rs" <<'ARG0JANPYEOF'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+          old = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        Err(err) => Err(err.into()),'
+          new = '        Err(std::fs::TryLockError::WouldBlock) => Ok(None),\n        #[cfg(target_os = "android")]\n        Err(_) => Ok(None),\n        Err(err) => Err(err.into()),'
+          if old in txt:
+              p.write_text(txt.replace(old, new, 1))
+              print("Applied Android try_lock_dir janitor fix to arg0/src/lib.rs")
+              sys.exit(0)
+          elif new in txt:
+              print("arg0/lib.rs try_lock_dir patch already applied — skipping")
+              sys.exit(2)
+          else:
+              print("ERROR: unexpected upstream change in arg0/src/lib.rs (try_lock_dir) — neither old nor new pattern found", file=sys.stderr)
+              sys.exit(1)
+          ARG0JANPYEOF
+          ARG0JAN_STATUS=$?
+          set -e
+          if [ "$ARG0JAN_STATUS" -eq 0 ]; then
+            echo "Assertion passed: arg0/lib.rs try_lock_dir patched"
+          elif [ "$ARG0JAN_STATUS" -eq 2 ]; then
+            echo "Skipped: arg0/lib.rs try_lock_dir already fixed"
+          else
+            exit "$ARG0JAN_STATUS"
+          fi
+
+          # Patch B: reduce TOKIO_WORKER_STACK_SIZE_BYTES for Android
+          # 0.137.0+ added a thread spawn with 16 MiB stack (std::thread::Builder::stack_size).
+          # Android pthread_create fails with ENOMEM at 16 MiB on /data partition.
+          # Reduce to 8 MiB on Android as a safe interim value.
+          set +e
+          python3 - "$arg0_rs" <<'STACKPYEOF'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+          old = 'const TOKIO_WORKER_STACK_SIZE_BYTES: usize = 16 * 1024 * 1024;'
+          new = '#[cfg(not(target_os = "android"))]\nconst TOKIO_WORKER_STACK_SIZE_BYTES: usize = 16 * 1024 * 1024;\n#[cfg(target_os = "android")]\nconst TOKIO_WORKER_STACK_SIZE_BYTES: usize = 8 * 1024 * 1024; // pthread_create fails with 16 MiB on Android'
+          if old in txt:
+              p.write_text(txt.replace(old, new, 1))
+              print("Applied Android stack size patch to arg0/src/lib.rs")
+              sys.exit(0)
+          elif new in txt:
+              print("Stack size patch already applied — skipping")
+              sys.exit(2)
+          else:
+              print("TOKIO_WORKER_STACK_SIZE_BYTES not found — skipping (may not apply to this version)")
+              sys.exit(2)
+          STACKPYEOF
+          STACK_STATUS=$?
+          set -e
+          if [ "$STACK_STATUS" -eq 0 ]; then
+            echo "Assertion passed: Android stack size patch applied"
+          elif [ "$STACK_STATUS" -eq 2 ]; then
+            echo "Skipped: stack size patch not needed for this version"
+          else
+            exit "$STACK_STATUS"
+          fi
+
+          # Patch: fix rollout writer lock for Android via real flock() (libc FFI)
+          # Rust std's File::lock()/try_lock() omit target_os = "android" from their
+          # flock() allowlist (library/std/src/sys/fs/unix.rs), returning
+          # ErrorKind::Unsupported without ever calling flock(2) -- even though flock(2)
+          # itself works fine on this platform. This shim calls libc::flock() directly
+          # on Android so writer-lock exclusivity is preserved exactly as on every other
+          # target, instead of being silently dropped.
+          # writer_lock.rs was moved from thread-store/src/local/ to rollout/src/ in
+          # rust-v0.155.0 (commit 73a1148, "Coordinate rollout compression with active
+          # thread writers (#44138)"), with error type changed from ThreadStoreError to
+          # io::Error. The crash is new because rust-v0.147.0's local/mod.rs
+          # (acquire_writer_locks, renamed from acquire_paginated_writer_locks) removed
+          # the prior `ThreadHistoryMode::Legacy` skip, so the writer lock is now
+          # acquired unconditionally for every thread.
+          # Reported upstream: https://github.com/openai/codex/issues/26277
+          # Remove this patch once upstream openai/codex#26277 is fixed.
+          writer_lock_rs="source-repo/codex-rs/rollout/src/writer_lock.rs"
+          set +e
+          python3 - "$writer_lock_rs" <<'WLOCKPYEOF'
+          import sys
+          import pathlib
+
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+
+          HELPER_ANCHOR = 'const WRITER_LOCK_DIR: &str = "thread-writer-locks";'
+          HELPERS = '''#[cfg(target_os = "android")]
+          use std::os::fd::AsRawFd;
+
+          // Android's libc omits flock() from Rust std's File::lock()/try_lock() allowlist
+          // (library/std/src/sys/fs/unix.rs), so std returns ErrorKind::Unsupported without
+          // ever issuing the syscall, even though flock(2) itself works fine on this platform.
+          // Call it directly via libc so Android keeps the same writer-exclusivity guarantee
+          // as every other target instead of silently dropping it.
+          // Reported upstream: https://github.com/openai/codex/issues/26277
+          // Remove this shim once upstream openai/codex#26277 is fixed.
+          #[cfg(target_os = "android")]
+          fn android_flock_exclusive_blocking(file: &File) -> io::Result<()> {
+              let fd = file.as_raw_fd();
+              loop {
+                  // SAFETY: fd is a valid, open file descriptor owned by `file` for the
+                  // duration of this call.
+                  let rc = unsafe { libc::flock(fd, libc::LOCK_EX) };
+                  if rc == 0 {
+                      return Ok(());
+                  }
+                  let err = io::Error::last_os_error();
+                  if err.kind() != io::ErrorKind::Interrupted {
+                      return Err(err);
+                  }
+              }
+          }
+
+          #[cfg(target_os = "android")]
+          fn android_try_flock_exclusive(file: &File) -> io::Result<bool> {
+              let fd = file.as_raw_fd();
+              // SAFETY: fd is a valid, open file descriptor owned by `file` for the
+              // duration of this call.
+              let rc = unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) };
+              if rc == 0 {
+                  return Ok(true);
+              }
+              let err = io::Error::last_os_error();
+              if err.kind() == io::ErrorKind::WouldBlock {
+                  Ok(false)
+              } else {
+                  Err(err)
+              }
+          }
+
+          ''' + HELPER_ANCHOR
+
+          SITE1_A_OLD = '''        file.lock().map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
+                  })?;'''
+          SITE1_A_NEW = '''        #[cfg(target_os = "android")]
+                  android_flock_exclusive_blocking(&file).map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
+                  })?;
+                  #[cfg(not(target_os = "android"))]
+                  file.lock().map_err(|err| {
+                      io::Error::other(format!(
+                          "failed to acquire thread writer coordination lock: {err}"
+                      ))
+                  })?;'''
+
+          SITE1_B_OLD = '''        loop {
+                      match file.try_lock() {
+                          Ok(()) => break,
+                          Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Err(fs::TryLockError::WouldBlock) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(fs::TryLockError::Error(err)) => return Err(err),
+                      }
+                  }'''
+
+          SITE1_B_NEW = '''        #[cfg(target_os = "android")]
+                  loop {
+                      match android_try_flock_exclusive(&file) {
+                          Ok(true) => break,
+                          Ok(false) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Ok(false) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(err) => return Err(err),
+                      }
+                  }
+                  #[cfg(not(target_os = "android"))]
+                  loop {
+                      match file.try_lock() {
+                          Ok(()) => break,
+                          Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                              std::thread::sleep(Duration::from_millis(/*millis*/ 50));
+                          }
+                          Err(fs::TryLockError::WouldBlock) => {
+                              return Err(io::Error::new(
+                                  io::ErrorKind::TimedOut,
+                                  "timed out waiting for the thread writer coordination lock; another Codex process may be suspended on this or another host",
+                              ));
+                          }
+                          Err(fs::TryLockError::Error(err)) => return Err(err),
+                      }
+                  }'''
+
+          SITE2_OLD = '''        match file.try_lock() {
+                      Ok(()) => {}
+                      Err(std::fs::TryLockError::WouldBlock) => {
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
+                      }
+                      Err(std::fs::TryLockError::Error(err)) => {
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
+                      }
+                  }'''
+          SITE2_NEW = '''        #[cfg(target_os = "android")]
+                  match android_try_flock_exclusive(&file) {
+                      Ok(true) => {}
+                      Ok(false) => {
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
+                      }
+                      Err(err) => {
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
+                      }
+                  }
+                  #[cfg(not(target_os = "android"))]
+                  match file.try_lock() {
+                      Ok(()) => {}
+                      Err(std::fs::TryLockError::WouldBlock) => {
+                          return Err(io::Error::new(
+                              io::ErrorKind::WouldBlock,
+                              format!("thread {thread_id} already has an active writer"),
+                          ));
+                      }
+                      Err(std::fs::TryLockError::Error(err)) => {
+                          return Err(io::Error::other(format!(
+                              "failed to acquire thread writer lock {}: {err}",
+                              path.display()
+                          )));
+                      }
+                  }'''
+
+          SITE3_OLD = '''            match file.try_lock() {
+                          Ok(()) => {
+                              drop(file);
+                              if let Err(err) = fs::remove_file(&path)
+                                  && err.kind() != io::ErrorKind::NotFound
+                              {
+                                  warn!(
+                                      "failed to remove stale thread writer lock {}: {err}",
+                                      path.display()
+                                  );
+                              }
+                          }
+                          Err(std::fs::TryLockError::WouldBlock) => {}
+                          Err(std::fs::TryLockError::Error(err)) => {
+                              warn!(
+                                  "failed to inspect thread writer lock {}: {err}",
+                                  path.display()
+                              );
+                          }
+                      }'''
+          SITE3_NEW = '''            #[cfg(target_os = "android")]
+                      match android_try_flock_exclusive(&file) {
+                          Ok(true) => {
+                              drop(file);
+                              if let Err(err) = fs::remove_file(&path)
+                                  && err.kind() != io::ErrorKind::NotFound
+                              {
+                                  warn!(
+                                      "failed to remove stale thread writer lock {}: {err}",
+                                      path.display()
+                                  );
+                              }
+                          }
+                          Ok(false) => {}
+                          Err(err) => {
+                              warn!(
+                                  "failed to inspect thread writer lock {}: {err}",
+                                  path.display()
+                              );
+                          }
+                      }
+                      #[cfg(not(target_os = "android"))]
+                      match file.try_lock() {
+                          Ok(()) => {
+                              drop(file);
+                              if let Err(err) = fs::remove_file(&path)
+                                  && err.kind() != io::ErrorKind::NotFound
+                              {
+                                  warn!(
+                                      "failed to remove stale thread writer lock {}: {err}",
+                                      path.display()
+                                  );
+                              }
+                          }
+                          Err(std::fs::TryLockError::WouldBlock) => {}
+                          Err(std::fs::TryLockError::Error(err)) => {
+                              warn!(
+                                  "failed to inspect thread writer lock {}: {err}",
+                                  path.display()
+                              );
+                          }
+                      }'''
+
+          SITE4_OLD = '''        match OpenOptions::new().read(true).write(true).open(path) {
+                      Ok(file) => match file.try_lock() {
+                          Ok(()) => Ok(Some(coordination_lock)),
+                          Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+                          Err(std::fs::TryLockError::Error(err)) => Err(err),
+                      },
+                      Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(coordination_lock)),
+                      Err(err) => Err(err),
+                  }'''
+          SITE4_NEW = '''        match OpenOptions::new().read(true).write(true).open(path) {
+                      #[cfg(target_os = "android")]
+                      Ok(file) => match android_try_flock_exclusive(&file) {
+                          Ok(true) => Ok(Some(coordination_lock)),
+                          Ok(false) => Ok(None),
+                          Err(err) => Err(err),
+                      },
+                      #[cfg(not(target_os = "android"))]
+                      Ok(file) => match file.try_lock() {
+                          Ok(()) => Ok(Some(coordination_lock)),
+                          Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+                          Err(std::fs::TryLockError::Error(err)) => Err(err),
+                      },
+                      Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Some(coordination_lock)),
+                      Err(err) => Err(err),
+                  }'''
+
+          EDITS_COMMON = [
+              ("helper insertion", HELPER_ANCHOR, HELPERS),
+              ("acquire try_lock site", SITE2_OLD, SITE2_NEW),
+              ("remove_stale_thread_locks site", SITE3_OLD, SITE3_NEW),
+              ("try_acquire_for_publication site", SITE4_OLD, SITE4_NEW),
+          ]
+          SITE1 = {"A": (SITE1_A_OLD, SITE1_A_NEW), "B": (SITE1_B_OLD, SITE1_B_NEW)}
+
+
+          def counts(txt):
+              res = {}
+              res["lock_coordination site [A]"] = (txt.count(SITE1_A_OLD), txt.count(SITE1_A_NEW))
+              res["lock_coordination site [B]"] = (txt.count(SITE1_B_OLD), txt.count(SITE1_B_NEW))
+              for name, old, new in EDITS_COMMON:
+                  res[name] = (txt.count(old), txt.count(new))
+              return res
+
+
+          def is_fresh(txt):
+              oa, ob = txt.count(SITE1_A_OLD), txt.count(SITE1_B_OLD)
+              na, nb = txt.count(SITE1_A_NEW), txt.count(SITE1_B_NEW)
+              if (oa, ob) not in [(1, 0), (0, 1)]:
+                  return None
+              if na != 0 or nb != 0:
+                  return None
+              for _name, old, new in EDITS_COMMON:
+                  if txt.count(old) != 1 or txt.count(new) != 0:
+                      return None
+              return "A" if oa == 1 else "B"
+
+
+          def unapply(txt):
+              na, nb = txt.count(SITE1_A_NEW), txt.count(SITE1_B_NEW)
+              if (na, nb) not in [(1, 0), (0, 1)]:
+                  return None
+              for _name, _old, new in EDITS_COMMON:
+                  if txt.count(new) != 1:
+                      return None
+              variant = "A" if na == 1 else "B"
+              t = txt
+              t = t.replace(SITE4_NEW, SITE4_OLD, 1)
+              t = t.replace(SITE3_NEW, SITE3_OLD, 1)
+              t = t.replace(SITE2_NEW, SITE2_OLD, 1)
+              t = t.replace(SITE1[variant][1], SITE1[variant][0], 1)
+              t = t.replace(HELPERS, HELPER_ANCHOR, 1)
+              return t, variant
+
+
+          def is_applied(txt):
+              r = unapply(txt)
+              if r is None:
+                  return False
+              t, variant = r
+              return is_fresh(t) == variant
+
+
+          v = is_fresh(txt)
+          if v is not None:
+              ordered = [
+                  ("helper insertion", HELPER_ANCHOR, HELPERS),
+                  ("lock_coordination site", SITE1[v][0], SITE1[v][1]),
+                  ("acquire try_lock site", SITE2_OLD, SITE2_NEW),
+                  ("remove_stale_thread_locks site", SITE3_OLD, SITE3_NEW),
+                  ("try_acquire_for_publication site", SITE4_OLD, SITE4_NEW),
+              ]
+              for name, old, new in ordered:
+                  assert txt.count(old) == 1, f"{name}: old pattern not unique after prior edits"
+                  txt = txt.replace(old, new, 1)
+              p.write_text(txt)
+              print("Applied Android real-flock writer lock patch to writer_lock.rs (5/5 edits)")
+              sys.exit(0)
+
+          if is_applied(txt):
+              print("writer_lock.rs Android real-flock patch already applied — skipping")
+              sys.exit(2)
+
+          for name, old, _new in EDITS_COMMON:
+              count = txt.count(old)
+              if count != 1:
+                  print(
+                      f"ERROR: unexpected upstream change in writer_lock.rs at '{name}' "
+                      f"(expected exactly 1 occurrence of old pattern, found {count})",
+                      file=sys.stderr,
+                  )
+          oa, ob = txt.count(SITE1_A_OLD), txt.count(SITE1_B_OLD)
+          if (oa, ob) not in [(1, 0), (0, 1)]:
+              print(
+                  "ERROR: unexpected upstream change in writer_lock.rs at 'lock_coordination site' "
+                  f"(expected exactly one of SITE1_A/SITE1_B to match once; found A={oa}, B={ob})",
+                  file=sys.stderr,
+              )
+          for name, (o, n) in counts(txt).items():
+              print(f"{name}: old={o} new={n}", file=sys.stderr)
+          sys.exit(1)
+          WLOCKPYEOF
+          WLOCK_STATUS=$?
+          set -e
+          if [ "$WLOCK_STATUS" -eq 0 ]; then
+            if ! grep -qF 'fn android_flock_exclusive_blocking' "$writer_lock_rs"; then
+              echo "ERROR: Android flock shim not found in writer_lock.rs after patch" >&2
+              exit 1
+            fi
+            if ! grep -qF 'fn android_try_flock_exclusive' "$writer_lock_rs"; then
+              echo "ERROR: Android try_flock shim not found in writer_lock.rs after patch" >&2
+              exit 1
+            fi
+            echo "Assertion passed: Android real-flock shims present in writer_lock.rs"
+          elif [ "$WLOCK_STATUS" -eq 2 ]; then
+            echo "Skipped: writer_lock.rs already patched"
+          else
+            exit "$WLOCK_STATUS"
+          fi
+
+          # Patch: add libc dependency to rollout crate (needed by the Android
+          # real-flock shim above). Workspace already pins libc = "0.2.182".
+          rollout_cargo="source-repo/codex-rs/rollout/Cargo.toml"
+          set +e
+          python3 - "$rollout_cargo" <<'ROLLOUTCARGOPYEOF'
+          import sys
+          import pathlib
+
+          p = pathlib.Path(sys.argv[1])
+          txt = p.read_text()
+
+          # libc is only referenced from the Android-only flock() shim in
+          # rollout/src/writer_lock.rs (see writer_lock.rs patch,
+          # openai/codex#26277). Dependency ordering varies by version, so
+          # insert it immediately after the codex-utils-path line.
+          lines = txt.splitlines(keepends=True)
+
+          def line_text(line):
+              return line.removesuffix("\n").removesuffix("\r")
+
+          section_start = next(
+              (i for i, line in enumerate(lines) if line_text(line) == "[dependencies]"),
+              None,
+          )
+          if section_start is None:
+              print("ERROR: [dependencies] section not found in rollout/Cargo.toml", file=sys.stderr)
+              sys.exit(1)
+
+          section_end = next(
+              (i for i in range(section_start + 1, len(lines)) if line_text(lines[i]).lstrip().startswith("[")),
+              len(lines),
+          )
+          section = lines[section_start + 1:section_end]
+          if any(line_text(line) == "libc = { workspace = true }" for line in section):
+              print("rollout/Cargo.toml libc dependency already present — skipping")
+              sys.exit(2)
+
+          anchor = "codex-utils-path = { workspace = true }"
+          anchor_indexes = [
+              i for i in range(section_start + 1, section_end)
+              if line_text(lines[i]) == anchor
+          ]
+          count = len(anchor_indexes)
+          if count != 1:
+              print(
+                  f"ERROR: unexpected upstream change in rollout/Cargo.toml "
+                  f"(expected exactly 1 occurrence of anchor, found {count})",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          anchor_index = anchor_indexes[0]
+          anchor_line = lines[anchor_index]
+          if anchor_line.endswith("\r\n"):
+              newline = "\r\n"
+          elif anchor_line.endswith("\n"):
+              newline = "\n"
+          elif anchor_line.endswith("\r"):
+              newline = "\r"
+          else:
+              newline = "\n"
+          inserted = ("" if anchor_line.endswith(("\n", "\r")) else newline) + "libc = { workspace = true }" + (newline if anchor_line.endswith(("\n", "\r")) else "")
+          lines.insert(anchor_index + 1, inserted)
+          p.write_bytes("".join(lines).encode())
+          print("Added libc workspace dependency to rollout/Cargo.toml")
+          sys.exit(0)
+          ROLLOUTCARGOPYEOF
+          ROLLOUT_CARGO_STATUS=$?
+          set -e
+          if [ "$ROLLOUT_CARGO_STATUS" -eq 0 ]; then
+            if ! grep -qF 'libc = { workspace = true }' "$rollout_cargo"; then
+              echo "ERROR: libc dependency not found in rollout/Cargo.toml after patch" >&2
+              exit 1
+            fi
+            echo "Assertion passed: libc dependency present in rollout/Cargo.toml"
+          elif [ "$ROLLOUT_CARGO_STATUS" -eq 2 ]; then
+            echo "Skipped: rollout/Cargo.toml already patched"
+          else
+            exit "$ROLLOUT_CARGO_STATUS"
+          fi
+
+      # Applies to every openai/codex ref. Refs without codex-rs/mxc-sandbox/Cargo.toml (older refs
+      # allowed by Validate source_ref) are skipped. When the file exists, the script is idempotent
+      # and exits 1 if its anchors are missing, so the build stops instead of building an unpatched graph.
+      - name: Patch mxc-sdk out of the Android dependency graph (openai/codex)
+        if: (inputs.source_repository || 'openai/codex') == 'openai/codex'
+        run: |
+          set -eu
+          mxc_toml="source-repo/codex-rs/mxc-sandbox/Cargo.toml"
+          if [ ! -f "$mxc_toml" ]; then
+            echo "Skipped: $mxc_toml is not present in this ref; mxc-sdk patch is not needed"
+            exit 0
+          fi
+          python3 "host-repo/scripts/patch-mxc-sdk-android.py" "$mxc_toml"
+          git -C source-repo diff --stat -- codex-rs/mxc-sandbox/Cargo.toml
+
+      - name: Patch reqwest TLS to rustls for Android cross-compile
+        run: |
+          set -eu
+          WORKSPACE_CARGO="source-repo/codex-rs/Cargo.toml"
+          if [ -f "$WORKSPACE_CARGO" ]; then
+            python3 "host-repo/scripts/patch-reqwest-tls.py" "$WORKSPACE_CARGO"
+          fi
+          cd source-repo/codex-rs
+          cargo fetch --target aarch64-linux-android
+          echo "=== Cargo.lock diff after cargo fetch (see /tmp/cargo-lock-diff.txt) ==="
+          diff -u /tmp/cargo-lock-before.txt Cargo.lock > /tmp/cargo-lock-diff.txt || true
+          wc -l /tmp/cargo-lock-diff.txt
+          python3 "$GITHUB_WORKSPACE/host-repo/scripts/verify-cargo-lock-delta.py" \
+            /tmp/cargo-lock-before.txt Cargo.lock
+          set +e
+          OUT=$(cargo tree --locked --target aarch64-linux-android -p codex-http-client -i openssl-sys \
+            --format "{p} FEATURES=[{f}]" 2>&1)
+          STATUS=$?
+          set -e
+          echo "$OUT"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: cargo tree failed for codex-http-client (exit $STATUS)" >&2
+            exit 1
+          fi
+          echo "$OUT" | grep '^openssl-sys ' | head -1 | grep -q 'vendored' || {
+            echo "ERROR: openssl-sys resolved for codex-http-client WITHOUT the vendored feature" >&2
+            exit 1
+          }
+
+      - name: Diagnose openssl-sys dependency path
+        run: |
+          set -eu
+          cd source-repo/codex-rs
+          for pkg in codex-cli codex-exec codex-code-mode-host; do
+            echo "=== openssl-sys FEATURES for $pkg ==="
+            OUT=$(cargo tree --locked --target aarch64-linux-android -p "$pkg" -i openssl-sys \
+              --format "{p} FEATURES=[{f}]" 2>&1) || { echo "openssl-sys not found in $pkg"; continue; }
+            echo "$OUT"
+            echo "$OUT" | grep '^openssl-sys ' | head -1 | grep -q 'vendored' || {
+              echo "ERROR: openssl-sys resolved for $pkg WITHOUT the vendored feature" >&2
+              exit 1
+            }
+          done
+          echo '=== workspace openssl references ==='
+          grep -r 'openssl\|native-tls' --include=Cargo.toml . | grep -v 'target/' | grep -v '.cargo/' || true
+
+      - name: Install clippy
+        run: |
+          set -euo pipefail
+          cd source-repo/codex-rs
+          rustup component add clippy --toolchain "${RUST_VERSION}"
+          cargo +"${RUST_VERSION}" clippy --version
+
+      - name: Prepare clippy config with file-lock disallowed methods
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/clippy-conf
+          cp source-repo/codex-rs/clippy.toml /tmp/clippy-conf/clippy.toml
+          python3 - <<'PY'
+          import pathlib
+
+          path = pathlib.Path("/tmp/clippy-conf/clippy.toml")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+          hits = [i for i, line in enumerate(lines) if line.startswith("disallowed-methods = [")]
+          assert len(hits) == 1, f"expected exactly one 'disallowed-methods = [' line, found {len(hits)}"
+          start = hits[0]
+          methods = [
+              "std::fs::File::lock",
+              "std::fs::File::lock_shared",
+              "std::fs::File::try_lock",
+              "std::fs::File::try_lock_shared",
+              "std::fs::File::unlock",
+          ]
+          entries = [f'    {{ path = "{m}", reason = "codex-termux-file-lock" }},\n' for m in methods]
+          lines[start + 1:start + 1] = entries
+          path.write_text("".join(lines), encoding="utf-8")
+          print("clippy.toml lines around the insertion:")
+          for n in range(max(start - 2, 0), min(start + len(entries) + 3, len(lines))):
+              print(f"{n + 1}: {lines[n].rstrip()}")
+          PY
+
+      - name: Clippy stage 1 (unpatched file-lock sites)
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_PROFILE_RELEASE_DEBUG: "0"
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
+          CARGO_PROFILE_RELEASE_LTO: "false"
+        run: |
+          set -uo pipefail
+          cd source-repo/codex-rs
+          start=$(date +%s)
+          set +e
+          CLIPPY_CONF_DIR=/tmp/clippy-conf cargo +"${RUST_VERSION}" clippy \
+            -p codex-cli -p codex-exec -p codex-code-mode-host \
+            --target "${ANDROID_TARGET}" --locked \
+            --message-format=json \
+            -- --force-warn clippy::disallowed_methods --cap-lints warn \
+            > /tmp/clippy-stage1.jsonl 2> /tmp/clippy-stage1.stderr
+          status=$?
+          set -e
+          end=$(date +%s)
+          echo "$status" > /tmp/clippy-stage1.status
+          echo "stage 1 clippy exit status: ${status} (elapsed $((end - start))s)"
+          echo "stderr tail:"
+          tail -n 20 /tmp/clippy-stage1.stderr
+
+      - name: Extract stage 1 disallowed-methods sites
+        run: |
+          set -euo pipefail
+          cat > /tmp/extract_lock_sites.py <<'PY'
+          import json
+          import sys
+
+          src, dst = sys.argv[1], sys.argv[2]
+          seen = set()
+          sites = []
+          with open(src, encoding="utf-8") as fh:
+              for raw in fh:
+                  raw = raw.strip()
+                  if not raw.startswith("{"):
+                      continue
+                  msg = json.loads(raw)
+                  if msg.get("reason") != "compiler-message":
+                      continue
+                  diag = msg["message"]
+                  if (diag.get("code") or {}).get("code") != "clippy::disallowed_methods":
+                      continue
+                  for span in diag.get("spans", []):
+                      if not span.get("is_primary"):
+                          continue
+                      key = (span["file_name"], span["line_start"], span["column_start"])
+                      if key in seen:
+                          continue
+                      seen.add(key)
+                      sites.append({
+                          "file": span["file_name"],
+                          "line": span["line_start"],
+                          "column": span["column_start"],
+                          "message": diag.get("message", ""),
+                      })
+          sites.sort(key=lambda s: (s["file"], s["line"], s["column"]))
+          with open(dst, "w", encoding="utf-8") as fh:
+              json.dump(sites, fh, indent=2, ensure_ascii=False)
+          print(f"{len(sites)} disallowed_methods site(s) written to {dst}")
+          for s in sites:
+              print(f"  {s['file']}:{s['line']}:{s['column']}  {s['message']}")
+          PY
+          python3 -I /tmp/extract_lock_sites.py /tmp/clippy-stage1.jsonl /tmp/lock-sites-stage1.json
+
+      - name: Inject file-lock probes (deep, expect-gated, path reference)
+        run: |
+          set -euo pipefail
+          cd source-repo/codex-rs
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          probes = [
+              {
+                  "kind": "deep",
+                  "file": "login/src/auth/storage.rs",
+                  "token": "    file.lock()",
+                  "body": (
+                      "\n// spike-clippy-file-lock-gate probe (deep): method-call form\n"
+                      "#[doc(hidden)]\n"
+                      "pub fn __spike_file_lock_probe_deep(file: &std::fs::File) -> std::io::Result<()> {\n"
+                      "    file.lock()\n"
+                      "}\n"
+                  ),
+              },
+              {
+                  "kind": "expect",
+                  "file": "state/src/sqlite.rs",
+                  "token": "    file.lock_shared()",
+                  "body": (
+                      "\n// spike-clippy-file-lock-gate probe (expect): method-call form in a module with a file-level expect\n"
+                      "#[doc(hidden)]\n"
+                      "pub fn __spike_file_lock_probe_expect(file: &std::fs::File) -> std::io::Result<()> {\n"
+                      "    file.lock_shared()\n"
+                      "}\n"
+                  ),
+              },
+              {
+                  "kind": "path",
+                  "file": "message-history/src/lib.rs",
+                  "token": "    std::fs::File::unlock",
+                  "body": (
+                      "\n// spike-clippy-file-lock-gate probe (path): function-path reference form\n"
+                      "#[doc(hidden)]\n"
+                      "pub fn __spike_file_lock_probe_path() -> fn(&std::fs::File) -> std::io::Result<()> {\n"
+                      "    std::fs::File::unlock\n"
+                      "}\n"
+                  ),
+              },
+          ]
+
+          records = []
+          for probe in probes:
+              path = pathlib.Path(probe["file"])
+              assert path.is_file(), f"missing file: {probe['file']}"
+              text = path.read_text(encoding="utf-8")
+              if probe["kind"] == "expect":
+                  assert "#![expect(clippy::disallowed_methods)]" in text, f"expect marker not found in {probe['file']}"
+              if not text.endswith("\n"):
+                  text += "\n"
+              base = text.count("\n")
+              text += probe["body"]
+              path.write_text(text, encoding="utf-8")
+              lines = text.splitlines()
+              token_line = None
+              for idx in range(base, len(lines)):
+                  if lines[idx] == probe["token"]:
+                      token_line = idx + 1
+                      break
+              assert token_line is not None, f"probe token not found in {probe['file']}"
+              records.append({"kind": probe["kind"], "file": probe["file"], "line": token_line})
+
+          pathlib.Path("/tmp/injections.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
+          for r in records:
+              print(f"injected {r['kind']}: {r['file']}:{r['line']}")
+          PY
+
+      - name: Clippy stage 1b (with injected probes)
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_PROFILE_RELEASE_DEBUG: "0"
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
+          CARGO_PROFILE_RELEASE_LTO: "false"
+        run: |
+          set -uo pipefail
+          cd source-repo/codex-rs
+          start=$(date +%s)
+          set +e
+          CLIPPY_CONF_DIR=/tmp/clippy-conf cargo +"${RUST_VERSION}" clippy \
+            -p codex-cli -p codex-exec -p codex-code-mode-host \
+            --target "${ANDROID_TARGET}" --locked \
+            --message-format=json \
+            -- --force-warn clippy::disallowed_methods --cap-lints warn \
+            > /tmp/clippy-stage1b.jsonl 2> /tmp/clippy-stage1b.stderr
+          status=$?
+          set -e
+          end=$(date +%s)
+          echo "$status" > /tmp/clippy-stage1b.status
+          echo "stage 1b clippy exit status: ${status} (elapsed $((end - start))s)"
+          echo "stderr tail:"
+          tail -n 20 /tmp/clippy-stage1b.stderr
+
+      - name: Extract stage 1b sites and report injection detection
+        run: |
+          set -euo pipefail
+          python3 -I /tmp/extract_lock_sites.py /tmp/clippy-stage1b.jsonl /tmp/lock-sites-stage1b.json
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          def load(p):
+              return json.loads(pathlib.Path(p).read_text(encoding="utf-8"))
+
+          def key(s):
+              return (s["file"], s["line"], s["column"])
+
+          s1 = load("/tmp/lock-sites-stage1.json")
+          s1b = load("/tmp/lock-sites-stage1b.json")
+          k1 = {key(s) for s in s1}
+          k1b = {key(s) for s in s1b}
+          st1 = pathlib.Path("/tmp/clippy-stage1.status").read_text(encoding="utf-8").strip()
+          st1b = pathlib.Path("/tmp/clippy-stage1b.status").read_text(encoding="utf-8").strip()
+          errors1b = 0
+          for raw in pathlib.Path("/tmp/clippy-stage1b.jsonl").read_text(encoding="utf-8").splitlines():
+              if raw.startswith("{"):
+                  msg = json.loads(raw)
+                  if msg.get("reason") == "compiler-message" and msg["message"].get("level") == "error":
+                      errors1b += 1
+          lines = [
+              f"clippy exit status: stage1={st1} stage1b={st1b}",
+              f"compiler error messages in stage1b: {errors1b}",
+              f"disallowed_methods sites: stage1={len(s1)} stage1b={len(s1b)}",
+              "added in stage1b:",
+          ]
+          lines += [f"  + {k[0]}:{k[1]}:{k[2]}" for k in sorted(k1b - k1)]
+          lines.append("removed in stage1b:")
+          lines += [f"  - {k[0]}:{k[1]}:{k[2]}" for k in sorted(k1 - k1b)]
+          for r in load("/tmp/injections.json"):
+              hit = any(s["file"].endswith(r["file"]) and s["line"] == r["line"] for s in s1b)
+              lines.append(f"INJECTION {r['kind']}: {'FOUND' if hit else 'MISSING'} ({r['file']}:{r['line']})")
+          report = "\n".join(lines) + "\n"
+          pathlib.Path("/tmp/clippy-report.txt").write_text(report, encoding="utf-8")
+          print(report)
+          PY
+
+      - name: Upload spike artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: spike-clippy-file-lock-gate-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            /tmp/clippy-conf/clippy.toml
+            /tmp/clippy-stage1.jsonl
+            /tmp/clippy-stage1.stderr
+            /tmp/clippy-stage1.status
+            /tmp/clippy-stage1b.jsonl
+            /tmp/clippy-stage1b.stderr
+            /tmp/clippy-stage1b.status
+            /tmp/lock-sites-stage1.json
+            /tmp/lock-sites-stage1b.json
+            /tmp/injections.json
+            /tmp/clippy-report.txt
