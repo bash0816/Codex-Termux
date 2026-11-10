@@ -59,11 +59,11 @@ jobs:
           set -eu
           case "${{ inputs.source_repository || 'openai/codex' }}" in
             openai/codex)
-              case "${{ inputs.source_ref || 'rust-v0.167.0' }}" in
+              case "${{ inputs.source_ref || 'rust-v0.167.1' }}" in
                 rust-v0.131.0|rust-v0.133.0|rust-v0.13[4-9].*|rust-v0.1[4-9][0-9]*)
                   ;;
                 *)
-                  echo "unsupported source_ref for upstream line: ${{ inputs.source_ref || 'rust-v0.167.0' }}" >&2
+                  echo "unsupported source_ref for upstream line: ${{ inputs.source_ref || 'rust-v0.167.1' }}" >&2
                   exit 1
                   ;;
               esac
@@ -85,7 +85,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ inputs.source_repository || 'openai/codex' }}
-          ref: ${{ inputs.source_ref || 'rust-v0.167.0' }}
+          ref: ${{ inputs.source_ref || 'rust-v0.167.1' }}
           fetch-depth: 1
           path: source-repo
 
@@ -118,7 +118,7 @@ jobs:
       - name: Verify upstream workspace version when needed
         if: (inputs.source_repository || 'openai/codex') == 'openai/codex'
         env:
-          SOURCE_REF_INPUT: ${{ inputs.source_ref || 'rust-v0.167.0' }}
+          SOURCE_REF_INPUT: ${{ inputs.source_ref || 'rust-v0.167.1' }}
         run: |
           set -eu
           python3 - <<'PY' >> "$GITHUB_ENV"
