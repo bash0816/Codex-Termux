@@ -1145,7 +1145,8 @@ jobs:
               assert path.is_file(), f"missing file: {probe['file']}"
               text = path.read_text(encoding="utf-8")
               if probe["kind"] == "expect":
-                  assert "#![expect(clippy::disallowed_methods)]" in text, f"expect marker not found in {probe['file']}"
+                  head = "\n".join(text.splitlines()[:30])
+                  assert "#![expect(" in head and "clippy::disallowed_methods" in head, f"expect marker not found in the first 30 lines of {probe['file']}"
               if not text.endswith("\n"):
                   text += "\n"
               base = text.count("\n")
