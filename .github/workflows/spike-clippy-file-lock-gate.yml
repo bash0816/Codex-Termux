@@ -1134,7 +1134,7 @@ jobs:
               {
                   "kind": "path",
                   "file": "message-history/src/lib.rs",
-                  "body": "#[allow(dead_code)] fn __termux_inj_path() { let _g: fn(&std::fs::File) -> Result<(), std::fs::TryLockError> = std::fs::File::try_lock; }",
+                  "body": "#[allow(dead_code)] fn __termux_inj_path() { let _g = std::fs::File::try_lock; }",
                   "token": "std::fs::File::try_lock;",
               },
           ]
