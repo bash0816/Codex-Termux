@@ -79,8 +79,8 @@
   "rollback_policy": "Reinstall an explicit published version with npm to roll back.",
   "distribution_strategy": "public-npm-package",
   "audited_at": "2026-07-01T00:00:00+09:00",
-  "updated_at": "2026-11-17T00:31:19.702Z",
-  "build_run_id": "43969977273",
+  "updated_at": "2026-11-23T00:02:11.390Z",
+  "build_run_id": "44933388666",
   "source_sha": "9480ec100c3edee9fc69172e8e80a4730444094d",
   "expected_build_run_id": "43969977273"
 }
