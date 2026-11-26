@@ -74,6 +74,7 @@ jobs:
           node --test ../../scripts/sync-public-release-from-manifest.test.js
           node --test ../../scripts/finalize-audited-version.test.js
           node --test bin/magi-node-launcher.test.js
+          python3 -m unittest discover -s ../../scripts -p test_verify_lock_build_inputs.py
 
       - name: Manifest / README drift check
         run: node ../../scripts/check-public-release-skeleton.js
